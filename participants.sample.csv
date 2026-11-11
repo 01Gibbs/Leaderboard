@@ -1,0 +1,6 @@
+name,rest_api,framework_upgrade,container_image,stretch,helped
+Sample Person A,correct,correct,correct,2,3
+Sample Person B,correct,submitted,none,0,1
+Sample Person C,submitted,submitted,submitted,1,0
+Sample Person D,correct,correct,submitted,0,0
+"Sample, Person E",none,none,none,0,0
