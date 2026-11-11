@@ -35,6 +35,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { background: var(--bg); }
 body {
   margin: 0; background: var(--bg); color: var(--fg);
@@ -193,6 +194,10 @@ function say(text, isErr) {
 /* ---- CSV parsing (quotes, commas inside quotes, CRLF, BOM) ---- */
 function parseCSV(text) {
   text = text.replace(/^﻿/, '');
+  // Excel in some regions saves CSV with ";" or tabs, so use whichever the header row uses most.
+  const first = text.split(/\r?\n/)[0] || '';
+  const n = (ch) => first.split(ch).length - 1;
+  const delim = [',', ';', '\t'].sort((a, b) => n(b) - n(a))[0];
   const out = []; let row = [], cur = '', q = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
@@ -200,7 +205,7 @@ function parseCSV(text) {
       if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
       else cur += c;
     } else if (c === '"') q = true;
-    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === delim) { row.push(cur); cur = ''; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && text[i + 1] === '\n') i++;
       row.push(cur); cur = ''; out.push(row); row = [];
@@ -355,8 +360,10 @@ $('copy').addEventListener('click', async () => {
 $('csvFile').addEventListener('change', async (e) => {
   const f = e.target.files[0]; if (!f) return;
   rows = toParticipants(parseCSV(await f.text()));
-  say(skipped ? skipped + ' row' + (skipped === 1 ? '' : 's') + ' had no name and were skipped.' : '', skipped > 0);
-  $('picker').hidden = true; render();
+  say('Loaded ' + rows.length + ' participant' + (rows.length === 1 ? '' : 's') + ' from ' + f.name + '.' +
+    (skipped ? ' ' + skipped + ' row' + (skipped === 1 ? '' : 's') + ' had no name and were skipped.' : ''), skipped > 0);
+  e.target.value = ''; // lets the same file be chosen again after you edit it
+  render();
 });
 </script>
 </body>
