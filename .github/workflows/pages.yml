@@ -1,0 +1,38 @@
+# Publishes the page. Runs on every push to main, and is called directly by the workflows that change the
+# scores, because GitHub does not start workflows for pushes those workflows make themselves.
+# Needs Settings -> Pages -> Source: GitHub Actions.
+name: Publish the page
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true  # only the newest version matters
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main  # the latest scores, not the commit that started the calling workflow
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deploy
+        uses: actions/deploy-pages@v4

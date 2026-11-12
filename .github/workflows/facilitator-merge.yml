@@ -1,0 +1,19 @@
+name: 'Facilitator: Merge duplicate people'
+on:
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: 'The row to keep (its name stays), e.g. Bukky Adeyemi'
+        required: true
+      duplicate:
+        description: 'The duplicate row to fold into it, e.g. bukkie-create. The higher value of every column is kept.'
+        required: true
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  run:
+    uses: ./.github/workflows/facilitator-action.yml
+    with:
+      args: '["merge", ${{ toJSON(inputs.keep) }}, ${{ toJSON(inputs.duplicate) }}]'

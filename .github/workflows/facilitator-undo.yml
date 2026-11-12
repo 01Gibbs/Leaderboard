@@ -1,0 +1,12 @@
+name: 'Facilitator: Undo last change'
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  run:
+    uses: ./.github/workflows/facilitator-action.yml
+    with:
+      args: '["undo"]'

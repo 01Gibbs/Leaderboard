@@ -1,0 +1,19 @@
+name: 'Facilitator: Add a person'
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Full name'
+        required: true
+      github:
+        description: 'GitHub login, if known (their pull requests then count for this row)'
+        required: false
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  run:
+    uses: ./.github/workflows/facilitator-action.yml
+    with:
+      args: '["add", ${{ toJSON(inputs.name) }}, ${{ toJSON(inputs.github) }}]'

@@ -1,0 +1,19 @@
+name: 'Facilitator: Rename a person'
+on:
+  workflow_dispatch:
+    inputs:
+      person:
+        description: 'Current name or GitHub login'
+        required: true
+      new_name:
+        description: 'Name to show on the leaderboard'
+        required: true
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  run:
+    uses: ./.github/workflows/facilitator-action.yml
+    with:
+      args: '["rename", ${{ toJSON(inputs.person) }}, ${{ toJSON(inputs.new_name) }}]'

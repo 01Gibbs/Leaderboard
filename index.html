@@ -67,10 +67,11 @@ button:hover { border-color: var(--accent); }
 button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.board { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
 .row {
   display: grid; align-items: center; gap: 8px 12px; padding: 12px 16px; border-top: 1px solid var(--line);
-  grid-template-columns: 2.6rem minmax(9rem, 1.7fr) repeat(3, minmax(6.4rem, 1fr)) 4rem 4rem 4.6rem;
+  grid-template-columns: 2.6rem minmax(9rem, 1.7fr) repeat(var(--tracks, 4), minmax(5.2rem, 1fr)) 4rem 4rem 4rem 4.6rem;
+  min-width: calc(34rem + var(--tracks, 4) * 6rem); /* past about five exercises the board scrolls sideways instead of clipping */
 }
 .row.head { border-top: 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); background: var(--bg); padding-block: 9px; }
 .row.full { box-shadow: inset 4px 0 0 var(--ok); }
@@ -105,20 +106,21 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
 @media (max-width: 860px) {
   .row {
     grid-template-columns: 2.4rem 1fr 1fr 1fr;
-    grid-template-areas: "rank name name pts" ". t1 t2 t3" ". xs xs xs";
+    grid-template-areas: "rank name name pts" ". tr tr ." ". xs xs xs";
+    min-width: 0;
     padding: 12px;
   }
   .row.head { display: none; }
   .row .rank { grid-area: rank; }
   .row .name { grid-area: name; }
   .row .pts { grid-area: pts; }
-  .row .c0 { grid-area: t1; } .row .c1 { grid-area: t2; } .row .c2 { grid-area: t3; }
+  .row .tracks { grid-area: tr; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
   .row .xs { grid-area: xs; display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
   .row .xs .num { text-align: left; }
   .cell::before { display: block; }
   .row > .cell { min-width: 0; }
 }
-@media (min-width: 861px) { .row .xs { display: contents; } .lbl { display: none; } }
+@media (min-width: 861px) { .row .xs, .row .tracks { display: contents; } .lbl { display: none; } }
 @media (prefers-reduced-motion: no-preference) { .row, button { transition: background .15s, border-color .15s; } }
 </style>
 </head>
@@ -127,7 +129,7 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
   <header class="top">
     <div>
       <h1>Java Exercise Leaderboard</h1>
-      <p class="sub">Effort and correct solutions across the Framework upgrade, REST API and framework upgrade exercises.</p>
+      <p class="sub" id="sub">Effort and correct solutions across the workshop exercises.</p>
     </div>
     <div class="stats" aria-label="Summary">
       <div class="stat"><b id="sPeople">0</b><span>Participants</span></div>
@@ -141,6 +143,7 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
     <span>Correct solution <b>30</b></span>
     <span>Each stretch task <b>+5</b></span>
     <span>Each time helping a colleague <b>+5</b></span>
+    <span>Bonus points from facilitators</span>
   </div>
 
   <div class="bar">
@@ -166,15 +169,14 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
 </div>
 
 <script>
-// Scores live in participants.csv next to this page. Edit that file and commit; no code changes needed.
+// Scores live in participants.csv next to this page; the exercises are listed in lessons.json.
 const DATA_FILE = 'participants.csv';
-const TRACKS = [
-  { k: 'rest_api', label: 'Fizzbuzz' },
-  { k: 'framework_upgrade', label: 'REST API' },
-  { k: 'container_image', label: 'Framework upgrade' },
-];
+const LESSONS_FILE = 'lessons.json';
+// Columns that are not exercises. Every other column is shown as an exercise when lessons.json cannot be read.
+const BASE_COLUMNS = ['name', 'github', 'stretch', 'helped', 'bonus'];
+let TRACKS = [];
 const STATUS = { none: 'Not submitted', submitted: 'Submitted', correct: 'Correct' };
-const PTS = { none: 0, submitted: 10, correct: 30, stretch: 5, helped: 5 };
+const PTS = { none: 0, submitted: 10, correct: 30, stretch: 5, helped: 5, bonus: 1 };
 
 let rows = [], loaded = false, query = '', onlyOk = false, skipped = 0;
 const $ = (id) => document.getElementById(id);
@@ -221,15 +223,18 @@ function normStatus(v) {
   return 'none';
 }
 function toCount(v) { const n = parseInt(String(v || '').trim(), 10); return Number.isFinite(n) && n > 0 ? n : 0; }
+function toInt(v) { const n = parseInt(String(v || '').trim(), 10); return Number.isFinite(n) ? n : 0; }
+function titleCase(k) { const s = k.replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); }
 function toParticipants(table) {
   if (!table.length) return [];
   const head = table[0].map((h) => h.trim().toLowerCase().replace(/[\s-]+/g, '_'));
   const idx = (k) => head.indexOf(k);
+  if (!TRACKS.length) TRACKS = head.filter((h) => h && !BASE_COLUMNS.includes(h)).map((k) => ({ k, label: titleCase(k) }));
   const out = []; skipped = 0;
   for (const r of table.slice(1)) {
     const name = (r[idx('name')] || '').trim().slice(0, 80);
     if (!name) { skipped++; continue; }
-    const p = { name, tracks: {}, stretch: toCount(r[idx('stretch')]), helped: toCount(r[idx('helped')]) };
+    const p = { name, tracks: {}, stretch: toCount(r[idx('stretch')]), helped: toCount(r[idx('helped')]), bonus: toInt(r[idx('bonus')]) };
     TRACKS.forEach((t) => { p.tracks[t.k] = normStatus(r[idx(t.k)]); });
     out.push(p);
   }
@@ -241,7 +246,7 @@ function trackOf(p, k) { return p.tracks[k] || 'none'; }
 function pointsOf(p) {
   let t = 0;
   for (const tr of TRACKS) t += PTS[trackOf(p, tr.k)] || 0;
-  return t + p.stretch * PTS.stretch + p.helped * PTS.helped;
+  return t + p.stretch * PTS.stretch + p.helped * PTS.helped + p.bonus * PTS.bonus;
 }
 function countState(p, s) { return TRACKS.filter((t) => trackOf(p, t.k) === s).length; }
 function ranked() {
@@ -260,6 +265,7 @@ function render() {
   $('sOk').textContent = list.reduce((a, r) => a + countState(r.p, 'correct'), 0);
 
   const board = $('board'); board.replaceChildren();
+  board.style.setProperty('--tracks', TRACKS.length);
   if (!loaded) { board.append(el('div', 'empty', 'Loading the leaderboard…')); return; }
   if (!list.length) {
     const e = el('div', 'empty');
@@ -270,7 +276,7 @@ function render() {
   const head = el('div', 'row head');
   head.append(el('div', '', '#'), el('div', '', 'Participant'));
   TRACKS.forEach((t) => head.append(el('div', '', t.label)));
-  head.append(el('div', 'num', 'Stretch'), el('div', 'num', 'Helped'), el('div', 'num', 'Points'));
+  head.append(el('div', 'num', 'Stretch'), el('div', 'num', 'Helped'), el('div', 'num', 'Bonus'), el('div', 'num', 'Points'));
   board.append(head);
 
   const q = query.trim().toLowerCase();
@@ -286,18 +292,21 @@ function render() {
     const nm = el('div', 'name', p.name);
     if (full) nm.append(el('small', '', 'All correct'));
     row.append(nm);
-    TRACKS.forEach((t, i) => {
-      const c = el('div', 'cell c' + i); c.dataset.label = t.label;
+    const tracks = el('div', 'tracks');
+    TRACKS.forEach((t) => {
+      const c = el('div', 'cell'); c.dataset.label = t.label;
       const st = trackOf(p, t.k);
       const ch = el('span', 'chip ' + st, st === 'none' ? 'Not yet' : STATUS[st]);
       ch.setAttribute('aria-label', t.label + ': ' + STATUS[st]);
-      c.append(ch); row.append(c);
+      c.append(ch); tracks.append(c);
     });
+    row.append(tracks);
     const xs = el('div', 'xs');
-    const sc = el('div', 'num'), hc = el('div', 'num');
+    const sc = el('div', 'num'), hc = el('div', 'num'), bc = el('div', 'num');
     sc.append(el('span', 'lbl', 'Stretch '), document.createTextNode(String(p.stretch)));
     hc.append(el('span', 'lbl', 'Helped '), document.createTextNode(String(p.helped)));
-    xs.append(sc, hc); row.append(xs);
+    bc.append(el('span', 'lbl', 'Bonus '), document.createTextNode(String(p.bonus)));
+    xs.append(sc, hc, bc); row.append(xs);
     row.append(el('div', 'pts', String(r.pts)));
     board.append(row);
   }
@@ -310,7 +319,7 @@ function renderReco(list) {
   const box = $('reco'); box.replaceChildren();
   const groups = [];
   const allOk = list.filter((r) => countState(r.p, 'correct') === TRACKS.length);
-  if (allOk.length) groups.push(['Correct on every exercise', 'Submitted a correct solution to all three.', namesOf(allOk)]);
+  if (allOk.length) groups.push(['Correct on every exercise', 'Submitted a correct solution to every exercise.', namesOf(allOk)]);
   TRACKS.forEach((t) => {
     const ok = list.filter((r) => trackOf(r.p, t.k) === 'correct');
     if (ok.length) groups.push(['Correct: ' + t.label, ok.length + ' correct solution' + (ok.length === 1 ? '' : 's') + '.', namesOf(ok)]);
@@ -320,7 +329,7 @@ function renderReco(list) {
   const maxH = Math.max(0, ...list.map((r) => r.p.helped));
   if (maxH > 0) groups.push(['Helped colleagues most', 'Helped a colleague ' + maxH + ' time' + (maxH === 1 ? '' : 's') + '.', namesOf(list.filter((r) => r.p.helped === maxH))]);
   const tried = list.filter((r) => TRACKS.every((t) => trackOf(r.p, t.k) !== 'none'));
-  if (tried.length) groups.push(['Attempted every exercise', 'Submitted something for all three.', namesOf(tried)]);
+  if (tried.length) groups.push(['Attempted every exercise', 'Submitted something for every exercise.', namesOf(tried)]);
 
   $('recoWrap').hidden = groups.length === 0;
   for (const [title, desc, names] of groups) {
@@ -338,8 +347,18 @@ $('copy').addEventListener('click', async () => {
   catch (e) { const ta = el('textarea'); ta.value = text; ta.style.width = '100%'; $('msg').after(ta); ta.select(); say('Select the text below and copy it.'); }
 });
 
+function describeLessons() {
+  const names = TRACKS.map((t) => t.label);
+  const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names.join('');
+  $('sub').textContent = 'Effort and correct solutions across the ' + (list || 'workshop') + ' exercises.';
+}
+
 (async function start() {
   render();
+  try {
+    const res = await fetch(LESSONS_FILE, { cache: 'no-cache' });
+    if (res.ok) TRACKS = (await res.json()).map((l) => ({ k: l.key, label: l.label }));
+  } catch (e) { /* opened from disk: exercises come from the CSV columns instead */ }
   try {
     const res = await fetch(DATA_FILE, { cache: 'no-cache' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -353,13 +372,14 @@ $('copy').addEventListener('click', async () => {
     say('The scores file could not be loaded automatically (' + e.message + '). This happens when the page is opened straight from disk. Choose participants.csv below to view it, or run start.bat to open it through a local server.', true);
     $('picker').hidden = false;
   }
-  loaded = true; render();
+  loaded = true; describeLessons(); render();
 })();
 
 // Fallback for pages opened from disk: read the CSV the viewer picks.
 $('csvFile').addEventListener('change', async (e) => {
   const f = e.target.files[0]; if (!f) return;
   rows = toParticipants(parseCSV(await f.text()));
+  describeLessons();
   say('Loaded ' + rows.length + ' participant' + (rows.length === 1 ? '' : 's') + ' from ' + f.name + '.' +
     (skipped ? ' ' + skipped + ' row' + (skipped === 1 ? '' : 's') + ' had no name and were skipped.' : ''), skipped > 0);
   e.target.value = ''; // lets the same file be chosen again after you edit it

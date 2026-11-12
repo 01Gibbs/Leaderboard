@@ -1,0 +1,26 @@
+[
+  {
+    "key": "fizzbuzz",
+    "label": "FizzBuzz",
+    "repo": "meswright/excersize-1",
+    "check": "fizzbuzz"
+  },
+  {
+    "key": "rest_api",
+    "label": "REST API",
+    "repo": "AtulKumarSharma79/Onboardingtracker",
+    "check": "rest_api"
+  },
+  {
+    "key": "framework_upgrade",
+    "label": "Framework upgrade",
+    "repo": "AtulKumarSharma79/Frameworkupgrade",
+    "check": "framework_upgrade"
+  },
+  {
+    "key": "container_image",
+    "label": "Container image",
+    "repo": "AtulKumarSharma79/containerbaseimage",
+    "check": "container_image"
+  }
+]

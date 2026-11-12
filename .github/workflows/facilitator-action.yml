@@ -1,0 +1,39 @@
+# Shared by the "Facilitator: ..." workflows. Runs one leaderboard command, saves it, and republishes the page.
+# Inputs arrive as a JSON array and go straight to Python, so nothing typed in a form is run by a shell.
+name: Facilitator action
+
+on:
+  workflow_call:
+    inputs:
+      args:
+        required: true
+        type: string
+
+defaults:
+  run:
+    shell: bash  # with pipefail, so a failed command fails the run
+
+jobs:
+  change:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Change the leaderboard
+        env:
+          ARGS: ${{ inputs.args }}
+        run: grader/run_and_push.sh "" 'python3 grader/leaderboard.py --args-json "$ARGS"'
+      - name: Show recent actions
+        if: always()
+        run: |
+          { echo '#### Recent actions (newest first)'; echo '```'; python3 grader/leaderboard.py history 5; echo '```'
+            echo 'The public page updates a minute or two after this run finishes.'; } >> "$GITHUB_STEP_SUMMARY"
+
+  publish-page:
+    needs: change
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

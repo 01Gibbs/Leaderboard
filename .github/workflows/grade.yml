@@ -1,0 +1,79 @@
+# Pulls pull requests from the exercise repositories into the leaderboard and grades them.
+# Participant code runs only in the `grade` job, which has a read-only token and no stored credentials.
+# The `publish` job never runs participant code; it merges the results and commits them.
+name: 'Grade submissions (automatic every 30 min)'
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Grade one pull request only, e.g. AtulKumarSharma79/Frameworkupgrade#3'
+        required: false
+
+concurrency:
+  group: grade
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  grade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            25
+            21
+      - name: Create a separate user to run submissions as
+        run: sudo useradd --create-home --shell /bin/bash grader-sandbox
+      - name: Grade new commits
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ONLY: ${{ inputs.only }}
+          GRADER_SANDBOX_USER: grader-sandbox
+          GRADER_CACHE: /tmp/grader-cache  # readable by the sandbox user
+        run: python3 grader/leaderboard.py grade ${ONLY:+--only "$ONLY"}
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}  # keep whatever was graded, even if a later step failed
+        with:
+          name: results
+          path: grader/results.json
+
+  publish:
+    needs: grade
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: results
+          path: ${{ runner.temp }}/graded
+      - name: Update participants.csv
+        run: grader/run_and_push.sh "Update leaderboard from graded submissions" 'cp "$RUNNER_TEMP/graded/results.json" grader/results.json && python3 grader/leaderboard.py apply'
+
+  publish-page:
+    needs: publish
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

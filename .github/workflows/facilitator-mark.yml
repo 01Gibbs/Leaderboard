@@ -1,0 +1,23 @@
+name: 'Facilitator: Mark an exercise'
+on:
+  workflow_dispatch:
+    inputs:
+      person:
+        description: 'Name or GitHub login (as on the leaderboard)'
+        required: true
+      lesson:
+        description: 'Exercise key from lessons.json, e.g. container_image'
+        required: true
+      status:
+        description: 'Result'
+        type: choice
+        options: [correct, submitted, none]
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  run:
+    uses: ./.github/workflows/facilitator-action.yml
+    with:
+      args: '["mark", ${{ toJSON(inputs.person) }}, ${{ toJSON(inputs.lesson) }}, ${{ toJSON(inputs.status) }}]'

@@ -1,0 +1,23 @@
+name: 'Facilitator: Award points'
+on:
+  workflow_dispatch:
+    inputs:
+      person:
+        description: 'Name or GitHub login (as on the leaderboard)'
+        required: true
+      kind:
+        description: 'What for'
+        type: choice
+        options: [helped, stretch, bonus]
+      amount:
+        description: 'How many helps / stretch tasks, or bonus points. Use a minus sign to take away.'
+        default: '1'
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  run:
+    uses: ./.github/workflows/facilitator-action.yml
+    with:
+      args: '["award", ${{ toJSON(inputs.person) }}, ${{ toJSON(inputs.kind) }}, ${{ toJSON(inputs.amount) }}]'
