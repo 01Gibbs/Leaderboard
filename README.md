@@ -8,6 +8,7 @@ Edit `participants.csv` (in Excel, a text editor, or GitHub's web editor) and co
 | Column | Values |
 |---|---|
 | `name` | The participant's name. Rows with no name are skipped. |
+| `github_username` | Their GitHub login (the PR author's `user.login`), without the `@`. Used to match and order participants by their first PR in `AtulKumarSharma79/Onboardingtracker`. |
 | `rest_api` | `correct`, `submitted` or `none` |
 | `framework_upgrade` | `correct`, `submitted` or `none` |
 | `container_image` | `correct`, `submitted` or `none` |
@@ -15,6 +16,10 @@ Edit `participants.csv` (in Excel, a text editor, or GitHub's web editor) and co
 | `helped` | Number of times the person helped a colleague |
 
 Names containing a comma must be wrapped in double quotes, for example `"Rao, Asha"`.
+
+The leaderboard fetches all PRs from `AtulKumarSharma79/Onboardingtracker` and lists matched participants in order of their earliest PR creation time. Keep `name` as the display name and fill in `github_username` with the exact GitHub login so the participant can be matched. CSV participants without a matching PR appear after the matched participants, ordered by score. If GitHub's API is unavailable, the page displays the CSV participants by score and shows a warning.
+
+To reorder `participants.csv` and add rows for PR authors not already listed, run `python3 sync_participants.py` from this folder. New rows use the GitHub login for both `name` and `github_username`; score fields are left blank for you to fill in. Existing rows with no matching `github_username` are preserved after the PR authors, because their identities cannot be inferred safely.
 
 ## Points
 Submitted 10, correct solution 30, each stretch task +5, each time helping a colleague +5. To change the weights or the exercise names, edit the `PTS` and `TRACKS` constants near the bottom of `index.html`.
