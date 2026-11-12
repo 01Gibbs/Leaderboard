@@ -131,14 +131,14 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
       <h1>Java Exercise Leaderboard</h1>
       <p class="sub" id="sub">Effort and correct solutions across the workshop exercises.</p>
     </div>
-    <div class="stats" aria-label="Summary">
+    <div class="stats" aria-label="Summary" data-tour="stats">
       <div class="stat"><b id="sPeople">0</b><span>Participants</span></div>
       <div class="stat"><b id="sSub">0</b><span>Submissions</span></div>
       <div class="stat ok"><b id="sOk">0</b><span>Correct solutions</span></div>
     </div>
   </header>
 
-  <div class="rubric" aria-label="How points work">
+  <div class="rubric" aria-label="How points work" data-tour="rubric">
     <span>Submitted <b>10</b></span>
     <span>Correct solution <b>30</b></span>
     <span>Each stretch task <b>+5</b></span>
@@ -146,7 +146,7 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
     <span>Bonus points from facilitators</span>
   </div>
 
-  <div class="bar">
+  <div class="bar" data-tour="tools">
     <input type="search" id="q" placeholder="Find a participant" aria-label="Find a participant">
     <button id="onlyOk" aria-pressed="false">Correct solutions only</button>
     <button id="copy">Copy as text</button>
@@ -157,9 +157,9 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
     <label for="csvFile">Choose participants.csv:</label>
     <input type="file" id="csvFile" accept=".csv,text/csv">
   </div>
-  <div class="board" id="board" aria-label="Leaderboard"></div>
+  <div class="board" id="board" aria-label="Leaderboard" data-tour="board"></div>
 
-  <section id="recoWrap" hidden>
+  <section id="recoWrap" hidden data-tour="recognition">
     <h2 style="margin-bottom:12px">Recognition</h2>
     <div class="reco" id="reco"></div>
   </section>
@@ -273,7 +273,7 @@ function render() {
     board.append(e); $('recoWrap').hidden = true; return;
   }
 
-  const head = el('div', 'row head');
+  const head = el('div', 'row head'); head.dataset.tour = 'columns';
   head.append(el('div', '', '#'), el('div', '', 'Participant'));
   TRACKS.forEach((t) => head.append(el('div', '', t.label)));
   head.append(el('div', 'num', 'Stretch'), el('div', 'num', 'Helped'), el('div', 'num', 'Bonus'), el('div', 'num', 'Points'));
@@ -288,11 +288,13 @@ function render() {
     shown++;
     const full = countState(p, 'correct') === TRACKS.length;
     const row = el('div', 'row' + (full ? ' full' : ''));
+    const example = shown === 1; // the walkthrough points at the first row as an example
+    if (example) row.dataset.tour = 'first-row';
     row.append(el('div', 'rank' + (r.rank <= 3 ? ' top3' : ''), String(r.rank)));
     const nm = el('div', 'name', p.name);
     if (full) nm.append(el('small', '', 'All correct'));
     row.append(nm);
-    const tracks = el('div', 'tracks');
+    const tracks = el('div', 'tracks'); if (example) tracks.dataset.tour = 'first-row-results';
     TRACKS.forEach((t) => {
       const c = el('div', 'cell'); c.dataset.label = t.label;
       const st = trackOf(p, t.k);
@@ -301,7 +303,7 @@ function render() {
       c.append(ch); tracks.append(c);
     });
     row.append(tracks);
-    const xs = el('div', 'xs');
+    const xs = el('div', 'xs'); if (example) xs.dataset.tour = 'first-row-extras';
     const sc = el('div', 'num'), hc = el('div', 'num'), bc = el('div', 'num');
     sc.append(el('span', 'lbl', 'Stretch '), document.createTextNode(String(p.stretch)));
     hc.append(el('span', 'lbl', 'Helped '), document.createTextNode(String(p.helped)));

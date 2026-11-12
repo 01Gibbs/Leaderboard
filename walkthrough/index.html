@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leaderboard Walkthrough</title>
+<style>
+/* Layout: chapters across the top; the live leaderboard (or a step's own stage) on the left; the narration on the right. */
+:root {
+  color-scheme: light dark;
+  --bg: #f5f6f3; --surface: #ffffff; --fg: #1a2420; --muted: #5b6862; --line: #dde2dc;
+  --accent: #3a4bc0; --accent-soft: #e8ebfb; --dim: rgb(20 26 24 / 0.55); /* same palette as ../index.html */
+  --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111715; --surface: #19211e; --fg: #e5ebe7; --muted: #94a29a; --line: #29332e;
+    --accent: #99a6ff; --accent-soft: #232a52; --dim: rgb(0 0 0 / 0.6);
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font); display: flex; flex-direction: column; }
+a { color: var(--accent); }
+code, kbd { font: 0.9em ui-monospace, "SF Mono", Consolas, monospace; background: var(--accent-soft); border-radius: 4px; padding: 1px 5px; }
+kbd { border: 1px solid var(--line); }
+button { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 600; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+header h1 { font-size: 16px; margin: 0; }
+#chapters { display: flex; flex-wrap: wrap; gap: 6px; }
+#chapters button { padding: 4px 12px; border-radius: 999px; font-size: 13px; }
+#chapters button[aria-current="true"] { background: var(--accent-soft); border-color: var(--accent); }
+
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; }
+#view { position: relative; min-height: 0; overflow: hidden; }
+#board { width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
+#overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+#spot { position: absolute; border-radius: 12px; outline: 3px solid var(--accent); box-shadow: 0 0 0 200vmax var(--dim); }
+@media (prefers-reduced-motion: no-preference) { #spot { transition: top .25s, left .25s, width .25s, height .25s; } }
+#stage { position: absolute; inset: 0; overflow: auto; padding: 32px max(16px, 4vw); background: var(--bg); }
+#stage h2 { font-size: 26px; margin: 0 0 12px; }
+#stage h3 { margin: 28px 0 8px; font-size: 16px; }
+#stage .lead { font-size: 17px; color: var(--muted); max-width: 60ch; }
+#stage table { border-collapse: collapse; width: 100%; max-width: 860px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+#stage th, #stage td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--line); }
+#stage tr:first-child th, #stage tr:first-child td { border-top: 0; }
+#stage table:not(.grid) th { width: 34%; font-weight: 600; }
+#stage table.grid tr:first-child th { background: var(--bg); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 20px 0; max-width: 860px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.card span { color: var(--muted); font-size: 14px; }
+.hint, .muted { color: var(--muted); }
+ol.flow { list-style: none; counter-reset: flow; padding: 0; margin: 16px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; max-width: 900px; }
+ol.flow li { counter-increment: flow; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 4px; position: relative; }
+ol.flow li::before { content: counter(flow); width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+ol.flow li span { color: var(--muted); font-size: 14px; }
+ol.flow.side { max-width: 560px; }
+ol.flow.side li { border-style: dashed; }
+ul.checks { padding-left: 20px; max-width: 70ch; }
+ul.checks li { margin: 6px 0; }
+ul.plain { padding-left: 18px; }
+ul.plain small { color: var(--muted); }
+dl { max-width: 70ch; }
+dt { font-weight: 600; margin-top: 16px; }
+dd { margin: 4px 0 0; color: var(--muted); }
+
+aside { border-left: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+#narration { flex: 1; overflow: auto; padding: 22px 20px; overflow-wrap: anywhere; }
+#chapter { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); font-weight: 600; }
+#title { margin: 4px 0 12px; font-size: 21px; line-height: 1.3; }
+#text p { margin: 0 0 10px; }
+#note { background: var(--accent-soft); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+.controls { display: flex; align-items: center; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--line); }
+#counter { margin-right: auto; color: var(--muted); font-size: 13px; }
+#error { margin: 16px; padding: 12px 14px; border-radius: 8px; background: var(--accent-soft); }
+
+@media (max-width: 860px) {
+  main { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 58vh) auto; }
+  aside { border-left: 0; border-top: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Leaderboard walkthrough</h1>
+  <nav id="chapters" aria-label="Chapters"></nav>
+</header>
+<main>
+  <div id="view">
+    <iframe id="board" src="../index.html" title="The live leaderboard"></iframe>
+    <div id="overlay" aria-hidden="true"><div id="spot" hidden></div></div>
+    <section id="stage" hidden></section>
+  </div>
+  <aside aria-label="Walkthrough">
+    <div id="narration" aria-live="polite">
+      <p id="chapter"></p>
+      <h2 id="title">Loading…</h2>
+      <div id="text"></div>
+      <p id="note" hidden></p>
+      <p id="error" hidden></p>
+    </div>
+    <div class="controls">
+      <span id="counter"></span>
+      <button type="button" id="back">Back</button>
+      <button type="button" id="next" class="primary">Next</button>
+    </div>
+  </aside>
+</main>
+<script type="module">
+const $ = (id) => document.getElementById(id);
+try {
+  // Imported here, not at the top, so opening this file by double-clicking shows the message below.
+  const [{ steps }, { startTour }] = await Promise.all([import('./steps.js'), import('./tour.js')]);
+  const res = await fetch('context.json', { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const ctx = await res.json();
+  // The spotlight is drawn over the iframe, so it uses the iframe's own coordinates.
+  startTour(steps(ctx), {
+    frame: $('board'), stage: $('stage'), spot: $('spot'), chapterNav: $('chapters'),
+    chapter: $('chapter'), title: $('title'), text: $('text'), note: $('note'), counter: $('counter'), back: $('back'), next: $('next'),
+  });
+} catch (e) {
+  $('title').textContent = 'Start the walkthrough from a terminal';
+  $('error').innerHTML = 'In the leaderboard folder, run <code>python3 walkthrough.py</code> (Windows: <code>py walkthrough.py</code>). It opens this page for you.';
+  $('error').hidden = false;
+  $('back').disabled = $('next').disabled = true;
+}
+</script>
+</body>
+</html>

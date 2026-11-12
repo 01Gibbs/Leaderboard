@@ -4,9 +4,9 @@ name: Test the grader
 
 on:
   push:
-    paths: ['grader/**', 'lessons.json', '.github/workflows/**']
+    paths: ['grader/**', 'lessons.json', '.github/workflows/**', 'walkthrough/**', 'walkthrough.py', 'index.html']
   pull_request:
-    paths: ['grader/**', 'lessons.json', '.github/workflows/**']
+    paths: ['grader/**', 'lessons.json', '.github/workflows/**', 'walkthrough/**', 'walkthrough.py', 'index.html']
   workflow_dispatch:
 
 permissions:

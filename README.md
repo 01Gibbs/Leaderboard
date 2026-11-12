@@ -2,6 +2,8 @@
 
 A public leaderboard for the workshop. Participants submit each exercise as a pull request; the leaderboard picks them up, grades them, and ranks everyone by points. Facilitators adjust scores from GitHub's **Actions** tab, with nothing to install.
 
+**New here? Start with the walkthrough.** In this folder, run `python3 walkthrough.py` (Windows: `py walkthrough.py`; Python 3.8 or newer). It opens a five-minute guided tour of the leaderboard in your browser: what people see, how scores get there, the facilitator forms, and what a workshop repo needs. It only runs on your computer; press Ctrl+C to stop.
+
 - **Facilitators:** everything you need is in [FACILITATOR.md](FACILITATOR.md).
 - **Project lead:** set it up once (below), then add lessons as the workshop grows.
 
@@ -63,4 +65,5 @@ The current custom checks:
   - `checks.py` holds the checks.
 - **Tests:** `python3 -m unittest discover grader/tests`. They run in CI on every change (*Test the grader*), including the workflow simulation in `grader/tests/simulate_workflows.py`, which runs every workflow's shell steps against a scratch repository. The check tests need a JDK and network access, and the container test needs Docker; each skips itself without them.
 - **Security:** pull-request code runs only in the grading job, which has a read-only token. Within that job it runs as a separate `grader-sandbox` user that cannot write to the grader or its results, and everything it started is killed after each check. Saving results happens in a separate job. Run `leaderboard.py grade` locally only with `--no-run`, because without it the grader builds and runs code from the pull requests.
+- **Walkthrough:** `walkthrough.py` serves this folder on 127.0.0.1 and opens `walkthrough/`. The words are in `walkthrough/steps.js`; it points at the leaderboard only through `data-tour="..."` attributes in `index.html`, and a test fails if one goes missing.
 - **Preview locally:** run `python3 -m http.server 8000` (or `start.bat` on Windows), then open http://localhost:8000. To try made-up data, copy `participants.sample.csv` over `participants.csv`, and don't commit that copy.

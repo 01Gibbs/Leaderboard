@@ -2,6 +2,8 @@
 
 Everything is done from the repository on GitHub. You don't need to install anything.
 
+For a guided tour first, run `python3 walkthrough.py` (Windows: `py walkthrough.py`) in a copy of this repository. It opens in your browser.
+
 **To make a change:** open the repository → **Actions** tab → pick a *Facilitator:* action on the left → **Run workflow** (top right) → fill in the form → **Run workflow**.
 
 After about 30 seconds, the run shows a ✅ or ❌ with a one-line summary of what changed. Click the run to see it. The public page updates a minute or two later.
