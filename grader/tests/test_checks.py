@@ -16,6 +16,8 @@ from pathlib import Path
 GRADER = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GRADER))
 import checks  # noqa: E402
+import grade  # noqa: E402
+import lessons  # noqa: E402
 
 DATA = Path(__file__).resolve().parent / 'data'
 STARTERS = {
@@ -79,35 +81,41 @@ def reference_upgrade(project):
     (project / 'src/main/java/com/example/onboarding/config/SecurityConfig.java').write_text(SECURITY_CONFIG_6)
 
 
-def run_check(check, repo, lesson_key='lesson'):
-    """Run a check the way grade.py does, including the sandbox user when GRADER_SANDBOX_USER is set."""
-    checks.share_with_sandbox(repo)
-    try:
-        return check(repo, {'key': lesson_key})
-    except checks.CheckFailed as e:
-        return False, [str(e)]
-    finally:
-        checks.stop_sandbox_processes()
+class LocalFolder:
+    """A source whose one "pull request" is a folder on this machine (a starter or a reference submission)."""
+
+    def __init__(self, path):
+        self.path = Path(path)
+
+    def checkout(self, repo, number, dest):
+        shutil.copytree(self.path, dest, dirs_exist_ok=True)
+
+
+def run_check(check, folder, lesson_key=None):
+    """Grade a folder exactly as grade.py grades a pull request: same workspace, sandbox and error handling."""
+    lesson = lessons.Lesson(lesson_key or check, lesson_key or check, 'local/folder', check, lessons.FIXTURES / (lesson_key or check))
+    passed, reasons = grade.grade_submission(lesson, LocalFolder(folder), grade.PullRequest(1, 'tester', 'local', ''))
+    return passed, reasons
 
 
 @unittest.skipUnless(checks.jdks(), 'needs a JDK')
 class FizzBuzzCheckTests(unittest.TestCase):
     def test_meaningful_tests_pass(self):
-        ok, reasons = run_check(checks.check_fizzbuzz, DATA / 'fizzbuzz' / 'good')
+        ok, reasons = run_check('fizzbuzz', DATA / 'fizzbuzz' / 'good')
         self.assertTrue(ok, reasons)
 
     def test_tests_in_a_package_pass(self):
-        ok, reasons = run_check(checks.check_fizzbuzz, DATA / 'fizzbuzz' / 'in_package')
+        ok, reasons = run_check('fizzbuzz', DATA / 'fizzbuzz' / 'in_package')
         self.assertTrue(ok, reasons)
 
     def test_weak_tests_fail_and_name_the_bugs_they_miss(self):
-        ok, reasons = run_check(checks.check_fizzbuzz, DATA / 'fizzbuzz' / 'weak')
+        ok, reasons = run_check('fizzbuzz', DATA / 'fizzbuzz' / 'weak')
         self.assertFalse(ok)
         self.assertIn('never says FizzBuzz', reasons[0])
 
     def test_missing_test_file(self):
         with tempfile.TemporaryDirectory() as tmp:
-            ok, reasons = run_check(checks.check_fizzbuzz, Path(tmp))
+            ok, reasons = run_check('fizzbuzz', Path(tmp))
         self.assertFalse(ok)
         self.assertIn('no FizzBuzzTest.java', reasons[0])
 
@@ -137,56 +145,63 @@ class GradleCheckTests(unittest.TestCase):
         return dest
 
     def test_rest_api_reference_passes(self):
-        ok, reasons = run_check(checks.check_rest_api, self.copy('rest_reference'))
+        ok, reasons = run_check('rest_api', self.copy('rest_reference'))
         self.assertTrue(ok, reasons)
 
     def test_rest_api_with_auth_on_every_endpoint_fails(self):
-        ok, reasons = run_check(checks.check_rest_api, self.copy('upgrade_done'))
+        ok, reasons = run_check('rest_api', self.copy('upgrade_done'))
         self.assertFalse(ok)
         self.assertTrue(any('401' in r for r in reasons), reasons)
 
     def test_framework_upgrade_starter_fails_with_every_reason(self):
-        ok, reasons = run_check(checks.check_framework_upgrade, self.copy('upgrade_starter'))
+        ok, reasons = run_check('framework_upgrade', self.copy('upgrade_starter'))
         self.assertFalse(ok)
         text = '\n'.join(reasons)
         for part in ('javax', 'server.max-http-header-size', 'use-new-id-generator-mappings', 'Spring Boot 3.5', 'commons-text-1.9'):
             self.assertIn(part, text)
 
     def test_framework_upgrade_reference_passes(self):
-        ok, reasons = run_check(checks.check_framework_upgrade, self.copy('upgrade_done'))
+        ok, reasons = run_check('framework_upgrade', self.copy('upgrade_done'))
         self.assertTrue(ok, reasons)
 
     def test_framework_upgrade_ignores_edited_tests(self):
         project = self.copy('upgrade_done')
         test = project / 'src/test/java/com/example/onboarding/EmployeeApiTests.java'
         test.write_text(test.read_text().replace('isUnauthorized()', 'isOk()'))  # would fail if it were used
-        ok, reasons = run_check(checks.check_framework_upgrade, project)
+        ok, reasons = run_check('framework_upgrade', project)
         self.assertTrue(ok, reasons)
 
     def test_level_build(self):
-        self.assertTrue(run_check(checks.check_build, self.copy('rest_reference'))[0])
+        self.assertTrue(run_check('build', self.copy('rest_reference'))[0])
         with tempfile.TemporaryDirectory() as tmp:
-            ok, reasons = run_check(checks.check_build, Path(tmp))
+            ok, reasons = run_check('build', Path(tmp))
         self.assertFalse(ok)
         self.assertIn('no Gradle project', reasons[0])
 
     def test_level_tests_uses_the_lessons_fixture_files(self):
-        ok, reasons = run_check(checks.check_tests, self.copy('upgrade_done'), 'framework_upgrade')
+        ok, reasons = run_check('tests', self.copy('upgrade_done'), 'framework_upgrade')
         self.assertTrue(ok, reasons)
-        ok, reasons = run_check(checks.check_tests, self.copy('rest_reference'), 'framework_upgrade')
+        ok, reasons = run_check('tests', self.copy('rest_reference'), 'framework_upgrade')
         self.assertFalse(ok)  # no security there, so our auth tests cannot pass
         self.assertIn('Gradle build failed', reasons[0])
 
     def test_level_tests_without_fixture_files_says_so(self):
-        ok, reasons = run_check(checks.check_tests, self.copy('rest_reference'), 'no_such_lesson')
+        ok, reasons = run_check('tests', self.copy('rest_reference'), 'no_such_lesson')
         self.assertFalse(ok)
         self.assertIn('grader/fixtures/no_such_lesson', reasons[0])
 
     def test_project_in_a_subfolder_is_found(self):
         with tempfile.TemporaryDirectory() as tmp:
             shutil.copytree(self.tmp / 'rest_reference', Path(tmp) / 'onboarding-tracker')
-            ok, reasons = run_check(checks.check_rest_api, Path(tmp))
+            ok, reasons = run_check('rest_api', Path(tmp))
         self.assertTrue(ok, reasons)
+
+
+class FizzBuzzSetupTests(unittest.TestCase):
+    def test_every_planted_bug_still_applies_to_the_reference_fizzbuzz(self):
+        reference = (lessons.FIXTURES / 'fizzbuzz' / 'FizzBuzz.java').read_text()
+        for label, old, new in checks.FIZZBUZZ_MUTANTS:
+            self.assertEqual(reference.count(old), 1, f'planted bug "{label}": "{old}" must appear once in FizzBuzz.java')
 
 
 class DockerfileRuleTests(unittest.TestCase):
@@ -235,7 +250,7 @@ class ContainerCheckTests(unittest.TestCase):
                 self.skipTest('cannot clone the starter project')
             (repo / 'Dockerfile').write_text(GOOD_DOCKERFILE)
             (repo / '.dockerignore').write_text('.git\n.gradle\nbuild\n')
-            ok, reasons = run_check(checks.check_container_image, repo)
+            ok, reasons = run_check('container_image', repo)
         self.assertTrue(ok, reasons)
 
 

@@ -23,7 +23,7 @@ facilitator fills in a form in the Actions tab (award, merge, undo...) ─┘
 The grader never lowers a result, so a facilitator's changes are never overwritten by the next grading run.
 
 ## Points
-Submitted **10**, correct **30**, each stretch task **+5**, each time helping a colleague **+5**, plus any bonus points a facilitator gives. The weights are the `PTS` constant in `index.html`.
+Submitted **10**, correct **30**, each stretch task **+5**, each time helping a colleague **+5**, plus any bonus points a facilitator gives. They live in one place, the `RULES` block at the top of `scoring.js`, which the page and the grader both read.
 
 ## One-time setup (repository owner)
 1. **Publish the page:** Settings → Pages → *Source* → **GitHub Actions**. The *Publish the page* workflow deploys it after every change. The site appears at `https://<owner>.github.io/<repository>/`.
@@ -58,12 +58,16 @@ The current custom checks:
 **Adding a lesson with Claude:** in this repository, ask Claude Code to *"add the lesson in owner/repo to the leaderboard"*. The `add-lesson` skill (`.claude/skills/add-lesson`) walks through choosing the level, writing and testing the check, and recording existing submissions. To add one by hand, add the entry to `lessons.json` with `"check": "none"`, then raise the level later.
 
 ## For maintainers
-- **Code:** everything lives in `grader/`, Python 3 standard library only:
-  - `leaderboard.py` is the single command line, the same commands the forms run.
-  - `roster.py` handles the CSV, the facilitator actions and undo.
-  - `grade.py` fetches pull requests and applies results.
-  - `checks.py` holds the checks.
+- **Code:** Python 3 standard library only, in `grader/`, plus `scoring.js` at the top:
+  - `scoring.js`: the rules (points, status words, how the CSV is read). The page loads it, and `grader/rules.py` reads the same rules, so the two can't disagree; a test runs both on tricky files to prove it.
+  - `lessons.py`: loads and checks `lessons.json`; gives each lesson its check, test files and a version (changing one lesson re-grades only that lesson).
+  - `roster.py`: every change to `participants.csv`: facilitator actions, undo, and applying graded results (results only go up).
+  - `grade.py`: finds pull requests (GitHub, or an in-memory stand-in in tests) and decides what to grade.
+  - `executor.py`: the only way participant code runs: a clean environment, timeouts, clean-up, and the CI sandbox user.
+  - `checks.py`: the checks, built from the executor and a `RunningApp` (a jar or a container).
+  - `leaderboard.py`: the single command line, the same commands the forms run.
 - **Tests:** `python3 -m unittest discover grader/tests`. They run in CI on every change (*Test the grader*), including the workflow simulation in `grader/tests/simulate_workflows.py`, which runs every workflow's shell steps against a scratch repository. The check tests need a JDK and network access, and the container test needs Docker; each skips itself without them.
 - **Security:** pull-request code runs only in the grading job, which has a read-only token. Within that job it runs as a separate `grader-sandbox` user that cannot write to the grader or its results, and everything it started is killed after each check. Saving results happens in a separate job. Run `leaderboard.py grade` locally only with `--no-run`, because without it the grader builds and runs code from the pull requests.
-- **Walkthrough:** `walkthrough.py` serves this folder on 127.0.0.1 and opens `walkthrough/`. The words are in `walkthrough/steps.js`; it points at the leaderboard only through `data-tour="..."` attributes in `index.html`, and a test fails if one goes missing.
-- **Preview locally:** run `python3 -m http.server 8000` (or `start.bat` on Windows), then open http://localhost:8000. To try made-up data, copy `participants.sample.csv` over `participants.csv`, and don't commit that copy.
+- **Walkthrough:** `walkthrough.py` serves this folder on 127.0.0.1 and opens `walkthrough/`, showing made-up example people (generated from `lessons.json`) unless run with `--real`. The words are in `walkthrough/steps.js`; it points at the leaderboard only through `data-tour="..."` attributes in `index.html`, and a test fails if one goes missing.
+- **Preview locally:** run `python3 walkthrough.py` to see the page with made-up example people (or `--real` for the real scores); `python3 -m http.server 8000` (or `start.bat` on Windows) serves the plain page.
+- **After merging changes to a check:** the next grading run re-grades every submission whose lesson's version changed (its check, the shared grader code, or its test files). The first run after this branch merges re-grades everything once, since older results have no per-lesson version.

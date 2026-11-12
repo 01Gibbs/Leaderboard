@@ -4,6 +4,7 @@
 //   target: a data-tour name in index.html (or a list: the first one visible is used), highlighted on the live leaderboard, or
 //   stage:  HTML shown in place of the leaderboard (diagrams, tables, links).
 // `ctx` is built from this repository by walkthrough.py (GitHub links, forms, lessons, recent actions).
+// Points come from RULES in ../scoring.js, the same rules the leaderboard and the grader use.
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const link = (url, text) => (url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text));
@@ -32,6 +33,8 @@ function fileLink(ctx, path, text) {
 }
 
 export function steps(ctx) {
+  const pts = RULES.points; // a top-level const in ../scoring.js: visible here, but not as globalThis.RULES
+  const example = ctx.lessons[0];
   const facilitatorForms = Object.keys(FORM_HELP).map((file) => ctx.forms.find((f) => f.file === file)).filter(Boolean);
   const actionsUrl = ctx.repo && `${ctx.repo.url}/actions`;
 
@@ -49,7 +52,10 @@ export function steps(ctx) {
           <div class="card"><b>Maintainers</b><span>where each part lives</span></div>
         </div>
         <p class="hint">Use <kbd>→</kbd> and <kbd>←</kbd> or the buttons. Links open in a new tab.</p>`,
-      text: `<p>The board on the next steps is the real one, loaded from this folder${ctx.repo ? `. The public copy is at ${link(ctx.repo.pages_url, ctx.repo.pages_url)}` : ''}.</p>`,
+      text: (ctx.sample
+        ? '<p>The board in this tour shows <b>made-up example people</b>, so you can see every state. To see the real scores, run <code>python3 walkthrough.py --real</code>.</p>'
+        : '<p>The board in this tour shows the <b>real scores</b> from this folder.</p>')
+        + (ctx.repo ? `<p>The public leaderboard is at ${link(ctx.repo.pages_url, ctx.repo.pages_url)}.</p>` : ''),
     },
     {
       chapter: 'The leaderboard',
@@ -61,7 +67,8 @@ export function steps(ctx) {
       chapter: 'The leaderboard',
       title: 'How points work',
       target: 'rubric',
-      text: '<p>Each exercise is worth <b>10</b> when submitted and <b>30</b> when correct. Facilitators add <b>+5</b> per stretch task, <b>+5</b> per time someone helped a colleague, and any bonus points.</p>',
+      text: `<p>Each exercise is worth <b>${pts.submitted}</b> when submitted and <b>${pts.correct}</b> when correct. Facilitators add <b>+${pts.stretch}</b> per stretch task, <b>+${pts.helped}</b> per time someone helped a colleague, and any bonus points.</p>
+        <p>These numbers live in one file, <code>scoring.js</code>, which the page and the grader both read.</p>`,
     },
     {
       chapter: 'The leaderboard',
@@ -197,6 +204,37 @@ export function steps(ctx) {
           ${ctx.lessons.map((l) => `<tr><td>${esc(l.label)}</td><td>${link(l.repo_url, l.repo)}</td><td>${levelOf(l.check).label}</td><td>${l.people}</td><td>${l.correct}</td></tr>`).join('')}
         </table>`,
       text: `<p>Each exercise is one entry in ${fileLink(ctx, 'lessons.json')}: its name, its repo, and how it is checked.</p><p>Counts come from the latest grading results in this folder.</p>`,
+    },
+    {
+      chapter: 'Workshop repos',
+      title: 'lessons.json: the list of exercises',
+      stage: `
+        <h2>lessons.json: the list of exercises</h2>
+        <p>One entry per exercise. ${ctx.lessons.length ? 'The first one, field by field:' : ''}</p>
+        ${example ? `
+        <pre class="code">{
+  <span class="k">"key"</span>: "${esc(example.key)}",
+  <span class="k">"label"</span>: "${esc(example.label)}",
+  <span class="k">"repo"</span>: "${esc(example.repo)}",
+  <span class="k">"check"</span>: "${esc(example.check)}"
+}</pre>
+        <table>
+          <tr><th>key</th><td>The column in participants.csv. Lowercase letters, digits and _; never change it once people have results.</td></tr>
+          <tr><th>label</th><td>The column heading on the leaderboard. Safe to change any time.</td></tr>
+          <tr><th>repo</th><td>Where participants open their pull requests: ${link(example.repo_url, example.repo)}.</td></tr>
+          <tr><th>check</th><td>How \u201cCorrect\u201d is decided: <b>none</b> (a facilitator marks it), <b>build</b>, <b>tests</b> (our test files in grader/fixtures/&lt;key&gt;/), or a custom check written in grader/checks.py.</td></tr>
+        </table>` : ''}
+        ${ctx.lesson_problems.length ? `<h3>lessons.json has problems right now</h3><ul class="checks">${ctx.lesson_problems.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
+          <p class="hint">Until they are fixed, grading and facilitator forms stop with this message, and nothing is changed.</p>` : ''}
+        <h3>Adding an exercise</h3>
+        <ol class="flow">
+          <li><b>Add one entry</b><span>with <code>"check": "none"</code> to start</span></li>
+          <li><b>A column appears</b><span>on the leaderboard and in participants.csv</span></li>
+          <li><b>Pull requests count</b><span>as Submitted within 30 minutes</span></li>
+          <li><b>Raise the level later</b><span>if automating it is worth it</span></li>
+        </ol>`,
+      text: `<p>${fileLink(ctx, 'lessons.json')} is the one place a workshop repo is connected to the leaderboard: the page, the grader, the facilitator forms and this tour all read it.</p>
+        <p>A mistake in it (a typo in a key, a missing label) is reported by name, and nothing is changed until it is fixed.</p>`,
     },
     {
       chapter: 'Workshop repos',

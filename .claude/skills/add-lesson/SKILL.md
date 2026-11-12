@@ -20,7 +20,7 @@ Pick the lowest level that decides "correct" honestly. Every level counts any pu
 | `tests` | our tests pass against the submission | test files in `grader/fixtures/<key>/`, at the same paths as in the project (they overwrite the submission's copies) |
 | custom | anything else: calling the running app, inspecting a Dockerfile, planted-bug tests | a function in `grader/checks.py` |
 
-The existing custom checks in `grader/checks.py` (`check_rest_api`, `check_framework_upgrade`, `check_container_image`, `check_fizzbuzz`) are the patterns to copy, with their helpers (`gradle_project`, `gradle`, `RunningJar`, `employee_api_checks`, `overlay`).
+The existing custom checks in `grader/checks.py` (`check_rest_api`, `check_framework_upgrade`, `check_container_image`, `check_fizzbuzz`) are the patterns to copy, with their helpers (`gradle_project`, `gradle`, `overlay`, `employee_api_checks`, and `RunningApp` with its `Jar` and `Container` adapters for calling a running app). Participant code runs only through the workspace (`ws.run`, `ws.start`), which handles the CI sandbox and clean-up.
 
 ## Steps
 
@@ -28,11 +28,11 @@ The existing custom checks in `grader/checks.py` (`check_rest_api`, `check_frame
 
 2. **Agree the level** with the user: propose one from the table with the reason, naming any requirement it will not check. Done when the user has confirmed it.
 
-3. **Add the entry** to `lessons.json`: `key` (lowercase, digits, `_`; becomes the CSV column), `label` (shown on the page), `repo` (`owner/name`), `check`. Done when `python3 -m unittest discover grader/tests -p test_roster.py` passes (it validates `lessons.json`).
+3. **Add the entry** to `lessons.json`: `key` (lowercase, digits, `_`; becomes the CSV column), `label` (shown on the page), `repo` (`owner/name`), `check`. Done when `python3 -m unittest discover grader/tests -p test_lessons.py` passes (it validates the real `lessons.json`).
 
-4. **Write the check** for `tests` or custom. Every failure reason is a sentence the participant can act on ("POST with a blank name should return 400 (got 500)"). A custom check is `def check_<key>(repo, lesson)` returning `(passed, reasons)` or raising `CheckFailed`, registered in `CHECKS` under the name used in `lessons.json`. Done when every requirement from step 1 that a check can observe is checked.
+4. **Write the check** for `tests` or custom. Every failure reason is a sentence the participant can act on ("POST with a blank name should return 400 (got 500)"). A custom check is `def check_<key>(ws, lesson)` (the checkout is at `ws.path`, the lesson's test files at `lesson.test_files`) returning `(passed, reasons)` or raising `CheckFailed`, registered in `CHECKS` under the name used in `lessons.json`. Done when every requirement from step 1 that a check can observe is checked.
 
-5. **Prove it** in `grader/tests/test_checks.py`, following `GradleCheckTests`: at least one known-good submission passes and one known-bad submission fails with the specific reason, using the starter or reference submissions you write (keep small ones in `grader/tests/data/<key>/`). Done when `python3 -m unittest discover grader/tests` is green with your new tests running, not skipped. A JDK is needed; if none is installed, download a Temurin JDK into a scratch folder and point `JAVA_HOME_21_X64` (or `_ARM64`) at it.
+5. **Prove it** in `grader/tests/test_checks.py`, following `GradleCheckTests` and its `run_check` helper (it grades a folder through `grade.grade_submission`, exactly as real pull requests are graded): at least one known-good submission passes and one known-bad submission fails with the specific reason, using the starter or reference submissions you write (keep small ones in `grader/tests/data/<key>/`). Done when `python3 -m unittest discover grader/tests` is green with your new tests running, not skipped. A JDK is needed; if none is installed, download a Temurin JDK into a scratch folder and point `JAVA_HOME_21_X64` (or `_ARM64`) at it.
 
 6. **Record current submissions:** `python3 grader/leaderboard.py grade --no-run && python3 grader/leaderboard.py apply`. Done when `git diff participants.csv` shows the new column and the expected people as `submitted`.
 

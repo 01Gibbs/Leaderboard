@@ -67,6 +67,8 @@ ul.checks li { margin: 6px 0; }
 ul.plain { padding-left: 18px; }
 ul.plain small { color: var(--muted); }
 dl { max-width: 70ch; }
+pre.code { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; max-width: 520px; overflow-x: auto; font: 14px/1.6 ui-monospace, "SF Mono", Consolas, monospace; }
+pre.code .k { color: var(--accent); }
 dt { font-weight: 600; margin-top: 16px; }
 dd { margin: 4px 0 0; color: var(--muted); }
 
@@ -112,6 +114,7 @@ aside { border-left: 1px solid var(--line); background: var(--surface); display:
     </div>
   </aside>
 </main>
+<script src="../scoring.js"></script>
 <script type="module">
 const $ = (id) => document.getElementById(id);
 try {
@@ -126,8 +129,14 @@ try {
     chapter: $('chapter'), title: $('title'), text: $('text'), note: $('note'), counter: $('counter'), back: $('back'), next: $('next'),
   });
 } catch (e) {
-  $('title').textContent = 'Start the walkthrough from a terminal';
-  $('error').innerHTML = 'In the leaderboard folder, run <code>python3 walkthrough.py</code> (Windows: <code>py walkthrough.py</code>). It opens this page for you.';
+  if (location.protocol === 'file:') {
+    $('title').textContent = 'Start the walkthrough from a terminal';
+    $('error').innerHTML = 'In the leaderboard folder, run <code>python3 walkthrough.py</code> (Windows: <code>py walkthrough.py</code>). It opens this page for you.';
+  } else {
+    console.error(e);
+    $('title').textContent = 'The walkthrough could not start';
+    $('error').textContent = String(e && e.message || e);
+  }
   $('error').hidden = false;
   $('back').disabled = $('next').disabled = true;
 }

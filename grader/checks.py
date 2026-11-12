@@ -2,20 +2,19 @@
 
 Generic levels any lesson can use without writing Python:
   build   the submission's Gradle project builds
-  tests   our test files in grader/fixtures/<lesson key>/ are copied over the submission, then `gradle test` must pass
+  tests   the lesson's test files (grader/fixtures/<lesson key>/) are copied over the submission, then `gradle test` must pass
 Custom checks (fizzbuzz, rest_api, ...) cover what a generic level cannot, such as calling the running app.
 
-Each check receives the checked-out pull request and the lesson, and returns (passed, reasons). It never
-trusts the participant's own tests: it runs ours, or calls the running application over HTTP.
+Each check is check(ws, lesson) -> (passed, reasons), or raises CheckFailed with a reason the participant can
+act on. `ws` is an executor.Workspace holding the checked-out pull request at ws.path; participant code runs
+only through ws.run and ws.start. A check never trusts the participant's own tests: it runs ours, or calls
+the running application over HTTP.
 """
 import json
 import os
 import re
 import shutil
-import signal
 import socket
-import subprocess
-import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -23,11 +22,10 @@ import zipfile
 from base64 import b64encode
 from pathlib import Path
 
+from executor import host_run
+
 HERE = Path(__file__).resolve().parent
-FIXTURES = HERE / 'fixtures'
 CACHE = Path(os.environ.get('GRADER_CACHE') or HERE / '.cache')
-# In CI, participant code runs as this separate user, which cannot write to the grader or its results.
-SANDBOX_USER = os.environ.get('GRADER_SANDBOX_USER')
 SKIP_DIRS = {'.git', '.gradle', '.idea', '.vscode', 'build', 'bin', 'out', 'target', 'node_modules'}
 JUNIT_JAR_URL = ('https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/'
                  '1.10.2/junit-platform-console-standalone-1.10.2.jar')
@@ -51,67 +49,23 @@ def jdks():
     return dict(sorted(found.items()))
 
 
-def newest_jdk():
+def installed_jdks():
     homes = jdks()
     if not homes:
         raise CheckFailed('grader has no JDK installed')
-    return list(homes.values())[-1]
+    return homes
 
 
-def clean_env(java_home=None):
-    """Environment for participant code: no tokens or other secrets."""
-    env = {k: os.environ[k] for k in ('PATH', 'HOME', 'LANG', 'TMPDIR') if k in os.environ}
-    if java_home:
-        env['JAVA_HOME'] = java_home
-        env['PATH'] = str(Path(java_home, 'bin')) + os.pathsep + env.get('PATH', '')
-    return env
-
-
-def as_sandbox(cmd, env):
-    """The command to run participant code: as the sandbox user when there is one."""
-    if not SANDBOX_USER:
-        return cmd
-    return ['sudo', '-n', '-H', '-u', SANDBOX_USER, 'env', *(f'{k}={v}' for k, v in env.items() if k != 'HOME'), *cmd]
-
-
-def share_with_sandbox(path):
-    """Let the sandbox user read and write a scratch folder (the checked-out pull request), and reach it
-    through any folders between it and the temp directory."""
-    if not SANDBOX_USER:
-        return
-    path, temp_root = Path(path).resolve(), Path(tempfile.gettempdir()).resolve()
-    subprocess.run(['chmod', '-R', 'a+rwX', str(path)], check=True)
-    for parent in path.parents:
-        if parent == temp_root or temp_root not in parent.parents:
-            break
-        subprocess.run(['chmod', 'a+x', str(parent)], check=True)
-
-
-def stop_sandbox_processes():
-    """Kill everything participant code started, including anything it left running in the background."""
-    if SANDBOX_USER:
-        subprocess.run(['sudo', '-n', 'pkill', '-KILL', '-u', SANDBOX_USER], capture_output=True)
-
-
-def run(cmd, cwd, timeout, java_home=None, sandbox=True):
-    """Run a command and return (exit code, output). sandbox=False only for commands that never execute
-    participant code on this machine (docker runs builds and images inside containers)."""
-    env = clean_env(java_home)
-    if sandbox:
-        cmd = as_sandbox(cmd, env)
-    try:
-        p = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return 124, f'timed out after {timeout}s'
-    return p.returncode, (p.stdout + p.stderr)
+def newest_jdk():
+    return list(installed_jdks().values())[-1]
 
 
 def tail(text, n=12):
     return '\n'.join(text.strip().splitlines()[-n:])
 
 
-def gradle_project(repo):
-    project = find_project(repo, 'gradlew', 'build.gradle', 'build.gradle.kts')
+def gradle_project(root):
+    project = find_project(root, 'gradlew', 'build.gradle', 'build.gradle.kts')
     if not project:
         raise CheckFailed('no Gradle project found')
     return project
@@ -140,32 +94,30 @@ def find_file(root, name):
     return hits[0] if hits else None
 
 
-def gradle(project, tasks, timeout=900):
+def gradle(ws, project, tasks, timeout=900):
     """Run the project's Gradle wrapper, trying each installed JDK until one works."""
     wrapper = project / 'gradlew'
     if not wrapper.exists():
         raise CheckFailed(f'no Gradle wrapper (gradlew) in {project.name or "the repository root"}')
     wrapper.chmod(0o755)
-    homes = jdks()
-    if not homes:
-        raise CheckFailed('grader has no JDK installed')
+    homes = installed_jdks()
     toolchains = '-Porg.gradle.java.installations.paths=' + ','.join(homes.values())
     # Try 21 first: it runs every recent Gradle release. Fall back to the others.
     out = ''
     for _, home in sorted(homes.items(), key=lambda kv: kv[0] != 21):
-        code, out = run(['./gradlew', '--no-daemon', '-q', toolchains, *tasks], project, timeout, home)
+        code, out = ws.run(['./gradlew', '--no-daemon', '-q', toolchains, *tasks], cwd=project, timeout=timeout, java_home=home)
         if code == 0:
             return
     raise CheckFailed('Gradle build failed:\n' + tail(out))
 
 
-def overlay(fixture_dir, project):
+def overlay(test_files, project):
     """Copy our files over the submission, replacing any file of the same path."""
-    if not fixture_dir.is_dir() or not any(f.is_file() for f in fixture_dir.rglob('*')):
-        raise CheckFailed(f'grader setup: no test files in grader/fixtures/{fixture_dir.name}/')
-    for f in fixture_dir.rglob('*'):
+    if not test_files.is_dir() or not any(f.is_file() for f in test_files.rglob('*')):
+        raise CheckFailed(f'grader setup: no test files in grader/fixtures/{test_files.name}/')
+    for f in test_files.rglob('*'):
         if f.is_file():
-            dest = project / f.relative_to(fixture_dir)
+            dest = project / f.relative_to(test_files)
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(f, dest)
 
@@ -216,40 +168,77 @@ def wait_until_up(url, is_alive, timeout=150):
     raise CheckFailed(f'the application did not start within {timeout}s')
 
 
-class RunningJar:
-    def __init__(self, jar, args, workdir):
-        self.port = free_port()
-        java = Path(newest_jdk(), 'bin', 'java')
-        self.log = open(Path(workdir, 'app.log'), 'w+')
-        env = clean_env()
-        self.proc = subprocess.Popen(
-            as_sandbox([str(java), '-jar', str(jar), f'--server.port={self.port}', *args], env),
-            cwd=workdir, env=env, stdout=self.log, stderr=subprocess.STDOUT, start_new_session=True)
-        self.base = f'http://127.0.0.1:{self.port}'
+# ---------- the app under test ----------
+
+class RunningApp:
+    """An app under test: started, waited for until it answers `ready`, called over HTTP at .base, and always
+    stopped, with its last log lines in the reason if it never came up. Adapters: Jar and Container."""
+
+    def __init__(self, adapter, ready='/', timeout=150):
+        self.adapter, self.ready, self.timeout = adapter, ready, timeout
+        self.base = adapter.base
 
     def __enter__(self):
+        self.adapter.start()
         try:
-            wait_until_up(self.base + '/', lambda: self.proc.poll() is None)
+            wait_until_up(self.base + self.ready, self.adapter.alive, self.timeout)
         except CheckFailed as e:
-            self.log.seek(0)
-            output = self.log.read()
-            self.stop()  # `with` does not call __exit__ when __enter__ fails
-            raise CheckFailed(f'{e}:\n' + tail(output)) from None
+            logs = self.adapter.logs()
+            self.adapter.stop()  # `with` does not call __exit__ when __enter__ fails
+            raise CheckFailed(f'{e}:\n' + tail(logs)) from None
         return self
 
     def __exit__(self, *exc):
-        self.stop()
+        self.adapter.stop()
+
+
+class Jar:
+    """A Spring Boot jar, run as participant code in the workspace."""
+
+    def __init__(self, ws, jar, args):
+        self.ws, self.jar, self.args = ws, jar, args
+        self.port = free_port()
+        self.base = f'http://127.0.0.1:{self.port}'
+        self.log, self.proc = ws.scratch() / 'app.log', None
+
+    def start(self):
+        java = Path(newest_jdk(), 'bin', 'java')
+        self.proc = self.ws.start([str(java), '-jar', str(self.jar), f'--server.port={self.port}', *self.args],
+                                  log=self.log, cwd=self.jar.parent)
+
+    def alive(self):
+        return self.proc.poll() is None
+
+    def logs(self):
+        return self.log.read_text(errors='replace') if self.log.exists() else ''
 
     def stop(self):
-        if SANDBOX_USER:
-            stop_sandbox_processes()
-        else:
-            try:
-                os.killpg(self.proc.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        self.proc.wait()
-        self.log.close()
+        if self.proc and self.proc.poll() is None:
+            self.ws.stop(self.proc)
+
+
+class Container:
+    """A Docker image, run by Docker (its code runs inside the container, not on this machine)."""
+
+    def __init__(self, tag, name, cwd, container_port=8080):
+        self.tag, self.name, self.cwd, self.container_port = tag, name, cwd, container_port
+        self.port = free_port()
+        self.base = f'http://127.0.0.1:{self.port}'
+
+    def start(self):
+        code, out = host_run(['docker', 'run', '-d', '--name', self.name, '-p', f'127.0.0.1:{self.port}:{self.container_port}', self.tag],
+                             cwd=self.cwd, timeout=60)
+        if code:
+            raise CheckFailed('docker run failed:\n' + tail(out))
+
+    def alive(self):
+        return host_run(['docker', 'inspect', '-f', '{{.State.Running}}', self.name], cwd=self.cwd, timeout=30)[1].strip() == 'true'
+
+    def logs(self):
+        return host_run(['docker', 'logs', self.name], cwd=self.cwd, timeout=30)[1]
+
+    def stop(self):
+        host_run(['docker', 'rm', '-f', self.name], cwd=self.cwd, timeout=60)
 
 
 def expect(problems, ok, message):
@@ -288,15 +277,15 @@ IN_MEMORY_DB = ['--spring.datasource.url=jdbc:h2:mem:grader;DB_CLOSE_DELAY=-1', 
 
 # ---------- generic levels ----------
 
-def check_build(repo, lesson):
-    gradle(gradle_project(repo), ['assemble'])
+def check_build(ws, lesson):
+    gradle(ws, gradle_project(ws.path), ['assemble'])
     return True, ['the project builds']
 
 
-def check_tests(repo, lesson):
-    project = gradle_project(repo)
-    overlay(FIXTURES / lesson['key'], project)
-    gradle(project, ['test'])
+def check_tests(ws, lesson):
+    project = gradle_project(ws.path)
+    overlay(lesson.test_files, project)
+    gradle(ws, project, ['test'])
     return True, ['our tests pass']
 
 
@@ -317,13 +306,13 @@ FIZZBUZZ_MUTANTS = [
 def junit_jar():
     jar = CACHE / Path(JUNIT_JAR_URL).name
     if not jar.exists():
-        CACHE.mkdir(exist_ok=True)
+        CACHE.mkdir(parents=True, exist_ok=True)
         urllib.request.urlretrieve(JUNIT_JAR_URL, jar)
     return jar
 
 
-def check_fizzbuzz(repo, lesson):
-    test = find_file(repo, 'FizzBuzzTest.java')
+def check_fizzbuzz(ws, lesson):
+    test = find_file(ws.path, 'FizzBuzzTest.java')
     if not test:
         raise CheckFailed('no FizzBuzzTest.java found')
     source = test.read_text(errors='replace')
@@ -332,35 +321,35 @@ def check_fizzbuzz(repo, lesson):
     pkg = re.search(r'^\s*package\s+([\w.]+)\s*;', source, re.M)
     pkg = pkg.group(1) if pkg else ''
     fqcn = (pkg + '.' if pkg else '') + 'FizzBuzzTest'
-    canonical = (FIXTURES / 'fizzbuzz' / 'FizzBuzz.java').read_text()
+    canonical = (lesson.test_files / 'FizzBuzz.java').read_text()
     jar = junit_jar()
     java_home = newest_jdk()
 
     def run_against(impl):
-        with tempfile.TemporaryDirectory() as tmp:
-            share_with_sandbox(tmp)
-            src = Path(tmp, 'src')
-            src.mkdir()
-            Path(src, 'FizzBuzz.java').write_text((f'package {pkg};\n' if pkg else '') + impl)
-            shutil.copy(test, src / 'FizzBuzzTest.java')
-            classes = Path(tmp, 'classes')
-            code, out = run([str(Path(java_home, 'bin', 'javac')), '-cp', str(jar), '-d', str(classes),
-                             str(src / 'FizzBuzz.java'), str(src / 'FizzBuzzTest.java')], tmp, 120, java_home)
-            if code:
-                raise CheckFailed('FizzBuzzTest.java does not compile:\n' + tail(out))
-            code, out = run([str(Path(java_home, 'bin', 'java')), '-jar', str(jar), 'execute', '--disable-banner',
-                             '--details=summary', '-cp', str(classes), '--select-class', fqcn], tmp, 120, java_home)
-            found = re.search(r'(\d+) tests found', out)
-            if found and found.group(1) == '0':
-                raise CheckFailed('no tests were found in FizzBuzzTest')
-            return code == 0, out
+        tmp = ws.scratch()
+        src = tmp / 'src'
+        src.mkdir()
+        (src / 'FizzBuzz.java').write_text((f'package {pkg};\n' if pkg else '') + impl)
+        shutil.copy(test, src / 'FizzBuzzTest.java')
+        classes = tmp / 'classes'
+        code, out = ws.run([str(Path(java_home, 'bin', 'javac')), '-cp', str(jar), '-d', str(classes),
+                            str(src / 'FizzBuzz.java'), str(src / 'FizzBuzzTest.java')], cwd=tmp, timeout=120, java_home=java_home)
+        if code:
+            raise CheckFailed('FizzBuzzTest.java does not compile:\n' + tail(out))
+        code, out = ws.run([str(Path(java_home, 'bin', 'java')), '-jar', str(jar), 'execute', '--disable-banner',
+                            '--details=summary', '-cp', str(classes), '--select-class', fqcn], cwd=tmp, timeout=120, java_home=java_home)
+        found = re.search(r'(\d+) tests found', out)
+        if found and found.group(1) == '0':
+            raise CheckFailed('no tests were found in FizzBuzzTest')
+        return code == 0, out
 
     passed, out = run_against(canonical)
     if not passed:
         raise CheckFailed('tests fail against the correct FizzBuzz:\n' + tail(out))
     survived = []
     for label, old, new in FIZZBUZZ_MUTANTS:
-        assert old in canonical, old
+        if old not in canonical:  # the reference FizzBuzz.java changed; test_checks catches this first
+            raise CheckFailed(f'grader setup: the planted bug "{label}" no longer applies to FizzBuzz.java')
         if run_against(canonical.replace(old, new, 1))[0]:
             survived.append(label)
     if survived:
@@ -370,11 +359,11 @@ def check_fizzbuzz(repo, lesson):
 
 # ---------- exercise 2: REST API ----------
 
-def check_rest_api(repo, lesson):
-    project = gradle_project(repo)
-    gradle(project, ['bootJar', '-x', 'test'])
+def check_rest_api(ws, lesson):
+    project = gradle_project(ws.path)
+    gradle(ws, project, ['bootJar', '-x', 'test'])
     problems = []
-    with RunningJar(boot_jar(project), IN_MEMORY_DB, project) as app:
+    with RunningApp(Jar(ws, boot_jar(project), IN_MEMORY_DB)) as app:
         employee_api_checks(app.base, problems)
     return not problems, problems or ['all API checks pass']
 
@@ -388,8 +377,8 @@ def version_tuple(v):
     return tuple(int(x) for x in re.findall(r'\d+', v)[:3])
 
 
-def check_framework_upgrade(repo, lesson):
-    project = gradle_project(repo)
+def check_framework_upgrade(ws, lesson):
+    project = gradle_project(ws.path)
     problems = []
     for f in (project / 'src').rglob('*.java') if (project / 'src').exists() else []:
         if re.search(r'\bjavax\.(persistence|validation)\b', f.read_text(errors='replace')):
@@ -400,8 +389,8 @@ def check_framework_upgrade(repo, lesson):
             if re.search(rf'^\s*{re.escape(p)}\s*[=:]', text, re.M):
                 problems.append(f'{props.name} still sets the removed property {p}')
 
-    overlay(FIXTURES / 'framework_upgrade', project)  # our copy of the tests, so editing them cannot make it pass
-    gradle(project, ['test', 'bootJar'])
+    overlay(lesson.test_files, project)  # our copy of the tests, so editing them cannot make it pass
+    gradle(ws, project, ['test', 'bootJar'])
     jar = boot_jar(project)
 
     libs = [Path(n).name for n in zipfile.ZipFile(jar).namelist() if n.startswith('BOOT-INF/lib/')]
@@ -412,7 +401,7 @@ def check_framework_upgrade(repo, lesson):
     if text_lib and version_tuple(text_lib) < (1, 10, 0):
         problems.append(f'{text_lib} is vulnerable (CVE-2022-42889); use 1.10.0 or newer')
 
-    with RunningJar(jar, IN_MEMORY_DB, project) as app:
+    with RunningApp(Jar(ws, jar, IN_MEMORY_DB)) as app:
         employee_api_checks(app.base, problems, auth=('admin', 'admin123'), sent_name='asha RAO')
         status, _ = http('GET', app.base + '/api/employees')
         expect(problems, status == 401, f'GET /api/employees without credentials should return 401 (got {status})')
@@ -464,40 +453,27 @@ def dockerfile_problems(context):
     return problems
 
 
-def check_container_image(repo, lesson):
-    context = find_project(repo, 'Dockerfile')
+def check_container_image(ws, lesson):
+    context = find_project(ws.path, 'Dockerfile')
     if not context:
         raise CheckFailed('no Dockerfile found')
     problems = dockerfile_problems(context)
 
-    container = 'grader-' + re.sub(r'[^a-z0-9]', '', repo.name.lower())[:40]
-    tag = container + ':grader'
-    code, out = run(['docker', 'build', '-t', tag, '.'], context, 1500, sandbox=False)
+    name = 'grader-' + re.sub(r'[^a-z0-9]', '', ws.root.name.lower())[:40]
+    tag = name + ':grader'
+    code, out = host_run(['docker', 'build', '-t', tag, '.'], cwd=context, timeout=1500)
     if code:
         return False, problems + ['docker build failed:\n' + tail(out)]
     try:
-        code, uid = run(['docker', 'run', '--rm', '--entrypoint', 'id', tag, '-u'], context, 60, sandbox=False)
+        code, uid = host_run(['docker', 'run', '--rm', '--entrypoint', 'id', tag, '-u'], cwd=context, timeout=60)
         expect(problems, code == 0 and uid.strip() != '0', f'the container should not run as root (id -u gave {uid.strip()!r})')
-
-        port = free_port()
-        code, out = run(['docker', 'run', '-d', '--name', container, '-p', f'127.0.0.1:{port}:8080', tag], context, 60, sandbox=False)
-        if code:
-            raise CheckFailed('docker run failed:\n' + tail(out))
-        base = f'http://127.0.0.1:{port}'
-
-        def alive():
-            return run(['docker', 'inspect', '-f', '{{.State.Running}}', container], context, 30, sandbox=False)[1].strip() == 'true'
-        try:
-            wait_until_up(base + '/actuator/health', alive)
-        except CheckFailed as e:
-            raise CheckFailed(f'{e}:\n' + tail(run(['docker', 'logs', container], context, 30, sandbox=False)[1])) from None
-        status, body = http('GET', base + '/actuator/health')
-        expect(problems, status == 200 and isinstance(body, dict) and body.get('status') == 'UP', f'/actuator/health should report UP (got {status})')
-        # Writes go to the file database inside the image, so this also proves the non-root user can write it.
-        employee_api_checks(base, problems)
+        with RunningApp(Container(tag, name, context), ready='/actuator/health') as app:
+            status, body = http('GET', app.base + '/actuator/health')
+            expect(problems, status == 200 and isinstance(body, dict) and body.get('status') == 'UP', f'/actuator/health should report UP (got {status})')
+            # Writes go to the file database inside the image, so this also proves the non-root user can write it.
+            employee_api_checks(app.base, problems)
     finally:
-        run(['docker', 'rm', '-f', container], context, 60, sandbox=False)
-        run(['docker', 'rmi', '-f', tag], context, 120, sandbox=False)
+        host_run(['docker', 'rmi', '-f', tag], cwd=context, timeout=120)
     return not problems, problems or ['approved pinned JRE base, multi-stage, non-root, app works in the container']
 
 

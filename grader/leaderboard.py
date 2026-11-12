@@ -20,6 +20,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import grade  # noqa: E402
 import roster  # noqa: E402
+from rules import COUNTS, STATUSES  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def parser():
@@ -30,12 +33,12 @@ def parser():
     c.add_argument('github', nargs='?', default='')
     c = sub.add_parser('award', help='add stretch, helped or bonus points')
     c.add_argument('person')
-    c.add_argument('kind', choices=roster.COUNTS)
+    c.add_argument('kind', choices=COUNTS)
     c.add_argument('amount', nargs='?', default='1')
     c = sub.add_parser('mark', help='set an exercise result by hand')
     c.add_argument('person')
     c.add_argument('lesson')
-    c.add_argument('status', choices=roster.STATUSES)
+    c.add_argument('status', choices=STATUSES)
     c = sub.add_parser('rename', help='change the name shown')
     c.add_argument('person')
     c.add_argument('new_name')
@@ -52,35 +55,37 @@ def parser():
     return p
 
 
-def run(argv):
+def run(argv, root):
     a = parser().parse_args(argv)
+    board = roster.Roster(root)
     if a.cmd == 'add':
-        return roster.add(a.name, a.github)
+        return board.add(a.name, a.github)
     if a.cmd == 'award':
-        return roster.award(a.person, a.kind, a.amount)
+        return board.award(a.person, a.kind, a.amount)
     if a.cmd == 'mark':
-        return roster.mark(a.person, a.lesson, a.status)
+        return board.mark(a.person, a.lesson, a.status)
     if a.cmd == 'rename':
-        return roster.rename(a.person, a.new_name)
+        return board.rename(a.person, a.new_name)
     if a.cmd == 'merge':
-        return roster.merge(a.keep, a.duplicates)
+        return board.merge(a.keep, a.duplicates)
     if a.cmd == 'undo':
-        return roster.undo(lambda: grade.apply(quiet=True))
+        return board.undo()
     if a.cmd == 'history':
-        return roster.recent(a.count)
+        return board.recent(a.count)
     if a.cmd == 'grade':
-        grade.grade(a.no_run, a.only)
+        grade.grade_all(root, no_run=a.no_run, only=a.only)
         return None
-    grade.apply()
+    changes, warnings = board.apply_results()
+    print('\n'.join([f'Warning: {w}' for w in warnings] + changes) or 'No changes')
     return None
 
 
-def main(argv):
+def main(argv, root=ROOT):
     # Workflows pass their form inputs as one JSON array, so no input is ever read by a shell.
     if argv[:1] == ['--args-json']:
         argv = [str(v) for v in json.loads(argv[1])]
     try:
-        summary = run(argv)
+        summary = run(argv, Path(root))
     except roster.ActionError as e:
         report(f'Nothing was changed. {e}', failed=True)
         return 1

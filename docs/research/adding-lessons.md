@@ -1,5 +1,7 @@
 # Adding a lesson to the leaderboard with little effort
 
+> **Update (12 Nov 2026):** since this note, `grader/lessons.py` gives each lesson its own version (its check, the check's code and its test files), replacing `grader_version()`; changing one lesson now re-grades only that lesson. Pinned upstream tests would add the pinned commit to that version. `RunningJar` is now `RunningApp` with `Jar` and `Container` adapters.
+
 *Research note, 12 November 2026. Audience: project lead and facilitators.*
 
 **Short answer:** Keep central grading, and make most new lessons need **no new Python**. To do that:

@@ -1,7 +1,8 @@
-"""Facilitator actions, undo, applying graded results, and lessons.json validation.
+"""The roster: facilitator actions, undo, and applying graded results, driven through the command line.
 
 Run: python3 -m unittest discover grader/tests
-Each test works on its own temporary copy of participants.csv, lessons.json and history, never the real ones.
+Each test points the command line at its own scratch copy of the repository (participants.csv, lessons.json,
+grader/results.json, grader/history.json), never the real one.
 """
 import contextlib
 import io
@@ -14,9 +15,9 @@ from pathlib import Path
 
 GRADER = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GRADER))
-import grade  # noqa: E402
 import leaderboard  # noqa: E402
 import roster  # noqa: E402
+import rules  # noqa: E402
 
 LESSONS = [
     {'key': 'fizzbuzz', 'label': 'FizzBuzz', 'repo': 'o/fizz', 'check': 'fizzbuzz'},
@@ -34,10 +35,7 @@ class Sandbox(unittest.TestCase):
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.dir)
-        self.patch(roster, 'CSV_FILE', self.dir / 'participants.csv')
-        self.patch(roster, 'HISTORY', self.dir / 'history.json')
-        self.patch(roster, 'LESSONS_FILE', self.dir / 'lessons.json')
-        self.patch(grade, 'RESULTS', self.dir / 'results.json')
+        (self.dir / 'grader').mkdir()
         (self.dir / 'lessons.json').write_text(json.dumps(LESSONS))
         (self.dir / 'participants.csv').write_text(CSV)
 
@@ -50,20 +48,23 @@ class Sandbox(unittest.TestCase):
         """Run a command the way a terminal or workflow does. Returns (exit code, stdout, stderr)."""
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = leaderboard.main(list(argv))
+            code = leaderboard.main(list(argv), root=self.dir)
         return code, out.getvalue(), err.getvalue()
 
     def csv_text(self):
         return (self.dir / 'participants.csv').read_text()
 
+    def roster(self):
+        return roster.Roster(self.dir)
+
     def row(self, who):
-        return roster.Roster().find(who)
+        return self.roster().find(who)
 
     def results(self, *subs):
         people = {s[0]: s[3] if len(s) > 3 else s[0] for s in subs}
         data = {'people': people, 'submissions': {
             f'o/x#{i}': {'login': s[0], 'task': s[1], 'passed': s[2]} for i, s in enumerate(subs)}}
-        (self.dir / 'results.json').write_text(json.dumps(data))
+        (self.dir / 'grader' / 'results.json').write_text(json.dumps(data))
 
 
 class AwardTests(Sandbox):
@@ -100,7 +101,7 @@ class AwardTests(Sandbox):
         self.assertEqual(code, 1)
         self.assertIn("Did you mean 'Stuart Smith'", err)
         self.assertEqual(self.csv_text(), CSV)
-        self.assertFalse((self.dir / 'history.json').exists())
+        self.assertEqual(self.roster().history(), [])
 
 
 class MarkRenameAddTests(Sandbox):
@@ -141,7 +142,7 @@ class MarkRenameAddTests(Sandbox):
         code, _, err = self.cli('add', 'Stuart Smith')
         self.assertEqual(code, 1)
         self.assertIn('More than one row matches', err)
-        self.assertEqual(sum(r['name'] == 'Stuart Smith' for r in roster.Roster().rows), 2)
+        self.assertEqual(sum(r['name'] == 'Stuart Smith' for r in self.roster().rows()), 2)
 
     def test_ambiguous_name_asks_for_login(self):
         # Two people can share a name when the grader adds someone whose GitHub profile name matches.
@@ -157,8 +158,8 @@ class MergeTests(Sandbox):
     def test_merge_keeps_the_higher_value_of_every_column(self):
         code, out, _ = self.cli('merge', 'Bukky Adeyemi', 'bukkie-create')
         self.assertEqual(code, 0)
-        r = roster.Roster()
-        self.assertEqual(len(r.rows), 2)
+        r = self.roster()
+        self.assertEqual(len(r.rows()), 2)
         row = r.find('Bukky Adeyemi')
         self.assertEqual((row['github'], row['fizzbuzz'], row['rest_api'], row['stretch'], row['helped']),
                          ('bukkie-create', 'submitted', 'submitted', '2', '3'))
@@ -167,9 +168,18 @@ class MergeTests(Sandbox):
         self.results(('bukkie-create', 'fizzbuzz', True))
         self.cli('merge', 'Bukky Adeyemi', 'bukkie-create')
         self.cli('apply')
-        rows = roster.Roster().rows
+        rows = self.roster().rows()
         self.assertEqual(len(rows), 2)
-        self.assertEqual(roster.Roster().find('Bukky Adeyemi')['fizzbuzz'], 'correct')
+        self.assertEqual(self.roster().find('Bukky Adeyemi')['fizzbuzz'], 'correct')
+
+    def test_merged_person_never_has_fewer_points_than_either_row(self):
+        keys = [l['key'] for l in LESSONS]
+        points = lambda: {r['name']: rules.points(r, keys) for r in rules.read_participants(self.csv_text(), keys)['rows']}
+        before = points()
+        self.cli('merge', 'Bukky Adeyemi', 'bukkie-create')
+        after = points()['Bukky Adeyemi']
+        self.assertGreaterEqual(after, max(before['Bukky Adeyemi'], before['bukkie-create']))
+        self.assertEqual(after, 10 + 10 + 2 * 5 + 3 * 5)  # submitted twice, 2 stretch, 3 helps
 
     def test_two_github_accounts_on_one_row_both_count(self):
         self.cli('add', 'Alt', 'second-account')
@@ -210,7 +220,7 @@ class UndoTests(Sandbox):
         self.results(('newcomer', 'rest_api', True, 'New Comer'))
         self.cli('apply')
         self.cli('undo')
-        r = roster.Roster()
+        r = self.roster()
         self.assertEqual(r.find('Stuart Smith')['name'], 'Stuart Smith')
         self.assertEqual(r.find('newcomer')['rest_api'], 'correct')
 
@@ -260,7 +270,7 @@ class UndoTests(Sandbox):
         self.patch(roster, 'HISTORY_LIMIT', 3)
         for _ in range(5):
             self.cli('award', 'Stuart Smith', 'bonus')
-        self.assertEqual(len(roster.load_history()), 3)
+        self.assertEqual(len(self.roster().history()), 3)
 
 
 class ApplyTests(Sandbox):
@@ -288,7 +298,7 @@ class ApplyTests(Sandbox):
     def test_results_for_a_removed_lesson_are_ignored(self):
         self.results(('StuartJSmith10-dev', 'old_lesson', True))
         self.cli('apply')
-        self.assertNotIn('old_lesson', roster.Roster().head)
+        self.assertNotIn('old_lesson', self.roster().columns())
 
     def test_duplicate_login_warns_and_points_at_merge(self):
         self.cli('add', 'Copy', 'other')
@@ -301,7 +311,7 @@ class ApplyTests(Sandbox):
     def test_new_lesson_column_is_added(self):
         (self.dir / 'lessons.json').write_text(json.dumps(LESSONS + [{'key': 'docker', 'label': 'Docker', 'repo': 'o/d', 'check': 'none'}]))
         self.cli('apply')
-        self.assertIn('docker', roster.Roster().head)
+        self.assertIn('docker', self.roster().columns())
 
 
 class FileFormatTests(Sandbox):
@@ -347,26 +357,14 @@ class WorkflowInputTests(Sandbox):
             self.assertIn(first, commands, wf.name)
 
 
-class LessonValidationTests(Sandbox):
-    def write(self, lessons):
-        (self.dir / 'lessons.json').write_text(json.dumps(lessons))
-
-    def test_valid_lessons_load(self):
-        self.assertEqual([l['key'] for l in grade.load_lessons()], ['fizzbuzz', 'rest_api', 'manual'])
-
-    def test_bad_entries_are_all_reported(self):
-        self.write([{'key': 'Bad Key', 'label': 'x', 'repo': 'o/r', 'check': 'none'},
-                    {'key': 'helped', 'label': 'x', 'repo': 'o/r', 'check': 'none'},
-                    {'key': 'ok', 'label': '', 'repo': 'not-a-repo', 'check': 'magic'}])
-        with self.assertRaises(SystemExit) as e:
-            grade.load_lessons()
-        msg = str(e.exception)
-        for part in ('lowercase', 'already used', 'owner/name', 'check must be one of', 'needs a label'):
-            self.assertIn(part, msg)
-
-    def test_real_lessons_file_is_valid(self):
-        self.patch(roster, 'LESSONS_FILE', GRADER.parent / 'lessons.json')
-        self.assertTrue(grade.load_lessons())
+class BrokenLessonsTests(Sandbox):
+    def test_a_broken_lessons_file_stops_actions_with_the_reason(self):
+        (self.dir / 'lessons.json').write_text(json.dumps(LESSONS + [{'key': 'Bad Key', 'label': 'x', 'repo': 'o/r'}]))
+        code, _, err = self.cli('award', 'Stuart Smith', 'helped')
+        self.assertEqual(code, 1)
+        self.assertIn('Nothing was changed', err)
+        self.assertIn('must be lowercase', err)
+        self.assertEqual(self.csv_text(), CSV)
 
 
 if __name__ == '__main__':

@@ -139,10 +139,10 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
   </header>
 
   <div class="rubric" aria-label="How points work" data-tour="rubric">
-    <span>Submitted <b>10</b></span>
-    <span>Correct solution <b>30</b></span>
-    <span>Each stretch task <b>+5</b></span>
-    <span>Each time helping a colleague <b>+5</b></span>
+    <span>Submitted <b data-points="submitted"></b></span>
+    <span>Correct solution <b data-points="correct"></b></span>
+    <span>Each stretch task <b data-points="stretch" data-plus></b></span>
+    <span>Each time helping a colleague <b data-points="helped" data-plus></b></span>
     <span>Bonus points from facilitators</span>
   </div>
 
@@ -168,15 +168,14 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
   <noscript><p class="note err">This leaderboard needs JavaScript to load the scores.</p></noscript>
 </div>
 
+<script src="scoring.js"></script>
 <script>
 // Scores live in participants.csv next to this page; the exercises are listed in lessons.json.
+// What things are worth, and how the CSV is read, are in scoring.js (RULES, readParticipants, pointsOf).
 const DATA_FILE = 'participants.csv';
 const LESSONS_FILE = 'lessons.json';
-// Columns that are not exercises. Every other column is shown as an exercise when lessons.json cannot be read.
-const BASE_COLUMNS = ['name', 'github', 'stretch', 'helped', 'bonus'];
 let TRACKS = [];
 const STATUS = { none: 'Not submitted', submitted: 'Submitted', correct: 'Correct' };
-const PTS = { none: 0, submitted: 10, correct: 30, stretch: 5, helped: 5, bonus: 1 };
 
 let rows = [], loaded = false, query = '', onlyOk = false, skipped = 0;
 const $ = (id) => document.getElementById(id);
@@ -193,64 +192,11 @@ function say(text, isErr) {
   m.textContent = text; m.className = 'note' + (isErr ? ' err' : ''); m.hidden = false;
 }
 
-/* ---- CSV parsing (quotes, commas inside quotes, CRLF, BOM) ---- */
-function parseCSV(text) {
-  text = text.replace(/^﻿/, '');
-  // Excel in some regions saves CSV with ";" or tabs, so use whichever the header row uses most.
-  const first = text.split(/\r?\n/)[0] || '';
-  const n = (ch) => first.split(ch).length - 1;
-  const delim = [',', ';', '\t'].sort((a, b) => n(b) - n(a))[0];
-  const out = []; let row = [], cur = '', q = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (q) {
-      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
-      else cur += c;
-    } else if (c === '"') q = true;
-    else if (c === delim) { row.push(cur); cur = ''; }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && text[i + 1] === '\n') i++;
-      row.push(cur); cur = ''; out.push(row); row = [];
-    } else cur += c;
-  }
-  if (cur !== '' || row.length) { row.push(cur); out.push(row); }
-  return out.filter((r) => r.some((v) => v.trim() !== ''));
-}
-function normStatus(v) {
-  const s = String(v || '').trim().toLowerCase();
-  if (['correct', 'passed', 'pass', 'yes', 'y', 'done'].includes(s)) return 'correct';
-  if (['submitted', 'partial', 'attempted', 'in review'].includes(s)) return 'submitted';
-  return 'none';
-}
-function toCount(v) { const n = parseInt(String(v || '').trim(), 10); return Number.isFinite(n) && n > 0 ? n : 0; }
-function toInt(v) { const n = parseInt(String(v || '').trim(), 10); return Number.isFinite(n) ? n : 0; }
-function titleCase(k) { const s = k.replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); }
-function toParticipants(table) {
-  if (!table.length) return [];
-  const head = table[0].map((h) => h.trim().toLowerCase().replace(/[\s-]+/g, '_'));
-  const idx = (k) => head.indexOf(k);
-  if (!TRACKS.length) TRACKS = head.filter((h) => h && !BASE_COLUMNS.includes(h)).map((k) => ({ k, label: titleCase(k) }));
-  const out = []; skipped = 0;
-  for (const r of table.slice(1)) {
-    const name = (r[idx('name')] || '').trim().slice(0, 80);
-    if (!name) { skipped++; continue; }
-    const p = { name, tracks: {}, stretch: toCount(r[idx('stretch')]), helped: toCount(r[idx('helped')]), bonus: toInt(r[idx('bonus')]) };
-    TRACKS.forEach((t) => { p.tracks[t.k] = normStatus(r[idx(t.k)]); });
-    out.push(p);
-  }
-  return out;
-}
-
-/* ---- scoring ---- */
+/* ---- scoring: the rules and the CSV reading are in scoring.js, shared with the grader ---- */
 function trackOf(p, k) { return p.tracks[k] || 'none'; }
-function pointsOf(p) {
-  let t = 0;
-  for (const tr of TRACKS) t += PTS[trackOf(p, tr.k)] || 0;
-  return t + p.stretch * PTS.stretch + p.helped * PTS.helped + p.bonus * PTS.bonus;
-}
 function countState(p, s) { return TRACKS.filter((t) => trackOf(p, t.k) === s).length; }
 function ranked() {
-  const list = rows.map((p) => ({ p, pts: pointsOf(p) }));
+  const list = rows.map((p) => ({ p, pts: pointsOf(p, TRACKS) }));
   list.sort((a, b) => b.pts - a.pts || a.p.name.localeCompare(b.p.name));
   let prev = null, rank = 0;
   list.forEach((r, i) => { if (r.pts !== prev) { rank = i + 1; prev = r.pts; } r.rank = rank; });
@@ -355,6 +301,15 @@ function describeLessons() {
   $('sub').textContent = 'Effort and correct solutions across the ' + (list || 'workshop') + ' exercises.';
 }
 
+function load(text) {
+  const read = readParticipants(text, TRACKS);
+  rows = read.rows; skipped = read.skipped; TRACKS = read.tracks;
+}
+
+document.querySelectorAll('[data-points]').forEach((b) => {
+  b.textContent = (b.hasAttribute('data-plus') ? '+' : '') + RULES.points[b.dataset.points];
+});
+
 (async function start() {
   render();
   try {
@@ -364,7 +319,7 @@ function describeLessons() {
   try {
     const res = await fetch(DATA_FILE, { cache: 'no-cache' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    rows = toParticipants(parseCSV(await res.text()));
+    load(await res.text());
     const lm = res.headers.get('last-modified');
     if (lm && !isNaN(Date.parse(lm))) {
       const u = $('updated'); u.textContent = 'Scores last updated ' + new Date(lm).toLocaleString(); u.hidden = false;
@@ -380,7 +335,7 @@ function describeLessons() {
 // Fallback for pages opened from disk: read the CSV the viewer picks.
 $('csvFile').addEventListener('change', async (e) => {
   const f = e.target.files[0]; if (!f) return;
-  rows = toParticipants(parseCSV(await f.text()));
+  load(await f.text());
   describeLessons();
   say('Loaded ' + rows.length + ' participant' + (rows.length === 1 ? '' : 's') + ' from ' + f.name + '.' +
     (skipped ? ' ' + skipped + ' row' + (skipped === 1 ? '' : 's') + ' had no name and were skipped.' : ''), skipped > 0);
