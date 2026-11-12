@@ -127,7 +127,7 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
   <header class="top">
     <div>
       <h1>Java Exercise Leaderboard</h1>
-      <p class="sub">Effort and correct solutions across the REST API, framework upgrade and container image exercises.</p>
+      <p class="sub">Effort and correct solutions across the Framework upgrade, REST API and framework upgrade exercises.</p>
     </div>
     <div class="stats" aria-label="Summary">
       <div class="stat"><b id="sPeople">0</b><span>Participants</span></div>
@@ -169,9 +169,9 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
 // Scores live in participants.csv next to this page. Edit that file and commit; no code changes needed.
 const DATA_FILE = 'participants.csv';
 const TRACKS = [
-  { k: 'rest_api', label: 'REST API' },
-  { k: 'framework_upgrade', label: 'Framework upgrade' },
-  { k: 'container_image', label: 'Container image' },
+  { k: 'rest_api', label: 'Framework upgrade' },
+  { k: 'framework_upgrade', label: 'REST API' },
+  { k: 'container_image', label: 'Framework upgrade' },
 ];
 const STATUS = { none: 'Not submitted', submitted: 'Submitted', correct: 'Correct' };
 const PTS = { none: 0, submitted: 10, correct: 30, stretch: 5, helped: 5 };
