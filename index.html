@@ -127,7 +127,7 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
   <header class="top">
     <div>
       <h1>Java Exercise Leaderboard</h1>
-      <p class="sub">Effort and correct solutions across the Framework upgrade, REST API and framework upgrade exercises.</p>
+      <p class="sub">Effort and correct solutions across the FizzBuzz, REST API and framework upgrade exercises.</p>
     </div>
     <div class="stats" aria-label="Summary">
       <div class="stat"><b id="sPeople">0</b><span>Participants</span></div>
@@ -140,6 +140,7 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
     <span>Submitted <b>10</b></span>
     <span>Correct solution <b>30</b></span>
     <span>Each stretch task <b>+5</b></span>
+    <span>First three PR authors per exercise <b>+5 stretch</b></span>
     <span>Each time helping a colleague <b>+5</b></span>
   </div>
 
@@ -168,17 +169,15 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
 <script>
 // Scores live in participants.csv next to this page. Edit that file and commit; no code changes needed.
 const DATA_FILE = 'participants.csv';
-const PRS_API = 'https://api.github.com/repos/AtulKumarSharma79/Onboardingtracker/pulls';
-const PRS_PER_PAGE = 100;
 const TRACKS = [
-  { k: 'rest_api', label: 'Fizzbuzz' },
-  { k: 'framework_upgrade', label: 'REST API' },
-  { k: 'container_image', label: 'Framework upgrade' },
+  { k: 'fizzbuzz', label: 'FizzBuzz' },
+  { k: 'rest_api', label: 'REST API' },
+  { k: 'framework_upgrade', label: 'Framework upgrade' },
 ];
 const STATUS = { none: 'Not submitted', submitted: 'Submitted', correct: 'Correct' };
 const PTS = { none: 0, submitted: 10, correct: 30, stretch: 5, helped: 5 };
 
-let rows = [], loaded = false, query = '', onlyOk = false, skipped = 0, prOrder = new Map();
+let rows = [], loaded = false, query = '', onlyOk = false, skipped = 0;
 const $ = (id) => document.getElementById(id);
 
 function el(tag, cls, text) {
@@ -225,20 +224,34 @@ function normStatus(v) {
 function toCount(v) { const n = parseInt(String(v || '').trim(), 10); return Number.isFinite(n) && n > 0 ? n : 0; }
 function toParticipants(table) {
   if (!table.length) return [];
-  const head = table[0].map((h) => h.trim().toLowerCase().replace(/[\s-]+/g, '_'));
+  const head = table[0].map((h) => {
+    const key = h.trim().toLowerCase().replace(/[\s-]+/g, '_');
+    const aliases = {
+      frameworkupgrade: 'framework_upgrade',
+      restapi: 'rest_api',
+      container_image: 'fizzbuzz',
+      prstretch: 'pr_stretch'
+    };
+    return aliases[key] || key;
+  });
   const idx = (k) => head.indexOf(k);
+  const value = (row, key) => {
+    const column = idx(key);
+    return column >= 0 ? row[column] || '' : '';
+  };
   const out = []; skipped = 0;
   for (const r of table.slice(1)) {
-    const name = (r[idx('name')] || '').trim().slice(0, 80);
+    const name = value(r, 'name').trim().slice(0, 80);
     if (!name) { skipped++; continue; }
     const p = {
       name,
-      githubUsername: (r[idx('github_username')] || '').trim().replace(/^@/, '').toLowerCase(),
+      githubUsername: value(r, 'github_username').trim().replace(/^@/, '').toLowerCase(),
       tracks: {},
-      stretch: toCount(r[idx('stretch')]),
-      helped: toCount(r[idx('helped')])
+      stretch: toCount(value(r, 'stretch')),
+      prStretch: toCount(value(r, 'pr_stretch')),
+      helped: toCount(value(r, 'helped'))
     };
-    TRACKS.forEach((t) => { p.tracks[t.k] = normStatus(r[idx(t.k)]); });
+    TRACKS.forEach((t) => { p.tracks[t.k] = normStatus(value(r, t.k)); });
     out.push(p);
   }
   return out;
@@ -246,48 +259,23 @@ function toParticipants(table) {
 
 /* ---- scoring ---- */
 function trackOf(p, k) { return p.tracks[k] || 'none'; }
+function stretchCount(p) { return p.stretch + p.prStretch; }
 function pointsOf(p) {
   let t = 0;
   for (const tr of TRACKS) t += PTS[trackOf(p, tr.k)] || 0;
-  return t + p.stretch * PTS.stretch + p.helped * PTS.helped;
+  return t + stretchCount(p) * PTS.stretch + p.helped * PTS.helped;
 }
 function countState(p, s) { return TRACKS.filter((t) => trackOf(p, t.k) === s).length; }
 function ranked() {
   const list = rows.map((p) => ({ p, pts: pointsOf(p) }));
-  list.sort((a, b) => {
-    const aOrder = prOrder.get(a.p.githubUsername) ?? Infinity;
-    const bOrder = prOrder.get(b.p.githubUsername) ?? Infinity;
-    return aOrder - bOrder || b.pts - a.pts || a.p.name.localeCompare(b.p.name);
-  });
-  list.forEach((r, i) => { r.rank = i + 1; });
+  list.sort((a, b) =>
+    b.pts - a.pts ||
+    countState(b.p, 'correct') - countState(a.p, 'correct') ||
+    a.p.name.localeCompare(b.p.name)
+  );
+  let prev = null, rank = 0;
+  list.forEach((r, i) => { if (r.pts !== prev) { rank = i + 1; prev = r.pts; } r.rank = rank; });
   return list;
-}
-
-async function loadPrOrder() {
-  const prs = [];
-  for (let page = 1; ; page++) {
-    const url = new URL(PRS_API);
-    url.search = new URLSearchParams({
-      state: 'all',
-      sort: 'created',
-      direction: 'asc',
-      per_page: String(PRS_PER_PAGE),
-      page: String(page)
-    });
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const batch = await res.json();
-    if (!Array.isArray(batch)) throw new Error('Unexpected response from GitHub');
-    prs.push(...batch);
-    if (batch.length < PRS_PER_PAGE) break;
-  }
-  prs.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.number - b.number);
-  const order = new Map();
-  for (const pr of prs) {
-    const login = pr.user?.login?.toLowerCase();
-    if (login && !order.has(login)) order.set(login, order.size);
-  }
-  return order;
 }
 
 /* ---- rendering ---- */
@@ -333,7 +321,7 @@ function render() {
     });
     const xs = el('div', 'xs');
     const sc = el('div', 'num'), hc = el('div', 'num');
-    sc.append(el('span', 'lbl', 'Stretch '), document.createTextNode(String(p.stretch)));
+    sc.append(el('span', 'lbl', 'Stretch '), document.createTextNode(String(stretchCount(p))));
     hc.append(el('span', 'lbl', 'Helped '), document.createTextNode(String(p.helped)));
     xs.append(sc, hc); row.append(xs);
     row.append(el('div', 'pts', String(r.pts)));
@@ -353,8 +341,8 @@ function renderReco(list) {
     const ok = list.filter((r) => trackOf(r.p, t.k) === 'correct');
     if (ok.length) groups.push(['Correct: ' + t.label, ok.length + ' correct solution' + (ok.length === 1 ? '' : 's') + '.', namesOf(ok)]);
   });
-  const maxS = Math.max(0, ...list.map((r) => r.p.stretch));
-  if (maxS > 0) groups.push(['Went beyond the brief', maxS + ' stretch task' + (maxS === 1 ? '' : 's') + ' completed.', namesOf(list.filter((r) => r.p.stretch === maxS))]);
+  const maxS = Math.max(0, ...list.map((r) => stretchCount(r.p)));
+  if (maxS > 0) groups.push(['Went beyond the brief', maxS + ' stretch task' + (maxS === 1 ? '' : 's') + ' completed.', namesOf(list.filter((r) => stretchCount(r.p) === maxS))]);
   const maxH = Math.max(0, ...list.map((r) => r.p.helped));
   if (maxH > 0) groups.push(['Helped colleagues most', 'Helped a colleague ' + maxH + ' time' + (maxH === 1 ? '' : 's') + '.', namesOf(list.filter((r) => r.p.helped === maxH))]);
   const tried = list.filter((r) => TRACKS.every((t) => trackOf(r.p, t.k) !== 'none'));
@@ -390,11 +378,6 @@ $('copy').addEventListener('click', async () => {
   } catch (e) {
     say('The scores file could not be loaded automatically (' + e.message + '). This happens when the page is opened straight from disk. Choose participants.csv below to view it, or run start.bat to open it through a local server.', true);
     $('picker').hidden = false;
-  }
-  try {
-    prOrder = await loadPrOrder();
-  } catch (e) {
-    say('PR order could not be loaded from GitHub (' + e.message + '). Participants are shown by score instead.', true);
   }
   loaded = true; render();
 })();
