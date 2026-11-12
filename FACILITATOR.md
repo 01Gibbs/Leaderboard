@@ -26,7 +26,7 @@ When a form asks for a **person**, use either their name as it appears on the le
 | Grade new pull requests right now | **Grade submissions** | nothing (it also runs every 30 minutes) |
 
 ## Points
-Submitted **10**, correct **30**, each stretch task **+5**, each help **+5**, and bonus points count one for one.
+Submitted **10**, correct **30**, each stretch task **+5**, each help **+5**, and bonus points count one for one. The first 3 pull requests on each exercise earn their authors a stretch credit automatically. Equal points are ranked by number of correct exercises.
 
 ## Good to know
 - **New participants appear by themselves** when they open a pull request on an exercise repository. They show under their GitHub profile name or username until you rename them.

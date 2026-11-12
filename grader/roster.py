@@ -17,7 +17,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import lessons
-from rules import BASE_COLUMNS, COUNTS, RANK, STATUSES, norm_header, norm_status, parse_csv, to_int
+from rules import BASE_COLUMNS, COUNTS, EARLY_BONUS, GENERATED, RANK, STATUSES, norm_header, norm_status, parse_csv, to_int
+
+LOGIN = BASE_COLUMNS[1]  # the github_username column
 
 HISTORY_LIMIT = 100
 BOM = '\ufeff'
@@ -32,8 +34,8 @@ class NotFound(ActionError):
 
 
 def logins(row):
-    """A row's `github` cell may list several accounts, separated by spaces (commas, ; and | also work)."""
-    return [l.lstrip('@') for l in re.split(r'[\s,;|]+', row.get('github', '')) if l.lstrip('@')]
+    """A row's github_username cell may list several accounts, separated by spaces (commas, ; and | also work)."""
+    return [l.lstrip('@') for l in re.split(r'[\s,;|]+', row.get(LOGIN, '')) if l.lstrip('@')]
 
 
 def actor():
@@ -51,7 +53,7 @@ class _Sheet:
     the delimiter, BOM and column order."""
 
     def __init__(self, path, lesson_keys):
-        columns = BASE_COLUMNS + lesson_keys + COUNTS
+        columns = BASE_COLUMNS + lesson_keys + COUNTS + GENERATED
         self.lesson_keys = lesson_keys
         raw = path.read_text(encoding='utf-8') if path.exists() else ''
         table, self.delim, self.bom = parse_csv(raw)
@@ -76,7 +78,7 @@ class _Sheet:
         return out + [{'before': before, 'after': None} for i, before in self.loaded.items() if i not in kept]
 
     def new_row(self, name, github=''):
-        row = {h: '' for h in self.head} | {'name': name, 'github': github}
+        row = {h: '' for h in self.head} | {'name': name, LOGIN: github}
         self.rows.append(row)
         return row
 
@@ -87,7 +89,7 @@ class _Sheet:
         if len(hits) == 1:
             return hits[0]
         if hits:
-            raise ActionError(f'More than one row matches "{who}": ' + ', '.join(f'{r["name"]} (@{r["github"] or "no GitHub"})' for r in hits)
+            raise ActionError(f'More than one row matches "{who}": ' + ', '.join(f'{r["name"]} (@{r[LOGIN] or "no GitHub"})' for r in hits)
                               + '. Use their GitHub login instead.')
         known = [r['name'] for r in self.rows] + [l for r in self.rows for l in logins(r)]
         close = difflib.get_close_matches(who.strip(), known, n=3, cutoff=0.5)
@@ -244,8 +246,10 @@ class Roster:
                 elif not keep.get(h):
                     keep[h] = d.get(h, '')
             sheet.rows.remove(d)
-        keep['github'] = ' '.join(accounts)
-        return self._record(sheet, f'Merged {", ".join(d["name"] for d in drops)} into {keep["name"]}')
+        keep[LOGIN] = ' '.join(accounts)
+        summary = self._record(sheet, f'Merged {", ".join(d["name"] for d in drops)} into {keep["name"]}')
+        self.apply_results()  # the kept row now has every account's early-PR bonus
+        return summary
 
     def undo(self):
         """Reverse the latest action: change back exactly the cells it changed, re-add rows it removed and remove
@@ -313,5 +317,21 @@ class Roster:
             if RANK[status] > RANK[norm_status(row.get(lesson))]:
                 changes.append(f'{row["name"]}: {lesson} -> {status}')
                 row[lesson] = status
+
+        # Early-PR bonus: worked out from scratch every time, so it is never added up twice.
+        early = {}
+        for lesson in keys:
+            # Opened first = earliest created_at; results recorded before created_at existed fall back to PR number.
+            opened = sorted((s for s in subs.values() if s['task'] == lesson),
+                            key=lambda s: (s.get('created_at') or '', to_int(str(s.get('url', '')).rsplit('/', 1)[-1])))
+            for s in opened[:EARLY_BONUS['firstSubmissions']]:
+                early[s['login'].lower()] = early.get(s['login'].lower(), 0) + 1
+        column = EARLY_BONUS['column']
+        for row in sheet.rows:
+            if logins(row):
+                earned = sum(early.get(l.lower(), 0) for l in logins(row))
+                if to_int(row.get(column)) != earned:  # "" and "0" both mean none: leave whichever is there
+                    changes.append(f'{row["name"]}: {column} -> {earned}')
+                    row[column] = str(earned) if earned else ''
         sheet.save()
         return changes, warnings

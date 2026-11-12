@@ -46,8 +46,8 @@ class FakeGitHub:
     def __init__(self):
         self.prs, self.names, self.down, self.checkouts = {}, {}, set(), []
 
-    def add(self, repo, number, login, sha):
-        self.prs.setdefault(repo, []).append(grade.PullRequest(number, login, sha, f'https://github.com/{repo}/pull/{number}'))
+    def add(self, repo, number, login, sha, created_at='2026-11-01T09:00:00Z'):
+        self.prs.setdefault(repo, []).append(grade.PullRequest(number, login, sha, f'https://github.com/{repo}/pull/{number}', created_at))
 
     def pull_requests(self, repo):
         if repo in self.down:
@@ -102,6 +102,11 @@ class GradingTests(Sandbox):
         self.assertEqual((self.sub('o/beta#7')['passed'], self.sub('o/beta#7')['reasons']), (False, ['POST should return 201 (got 500)']))
         self.assertEqual(self.results()['people'], {'ann': 'Ann Lee'})
 
+    def test_when_each_pull_request_was_opened_is_recorded(self):
+        self.github.add('o/alpha', 1, 'ann', 'a1', created_at='2026-11-03T10:00:00Z')
+        self.grade(no_run=True)
+        self.assertEqual(self.sub('o/alpha#1')['created_at'], '2026-11-03T10:00:00Z')
+
     def test_a_commit_is_graded_once(self):
         self.github.add('o/alpha', 1, 'ann', 'a1')
         self.grade()
@@ -111,7 +116,7 @@ class GradingTests(Sandbox):
     def test_a_new_commit_is_graded_again(self):
         self.github.add('o/alpha', 1, 'ann', 'a1')
         self.grade()
-        self.github.prs['o/alpha'][0] = grade.PullRequest(1, 'ann', 'a2', 'u')
+        self.github.prs['o/alpha'][0] = grade.PullRequest(1, 'ann', 'a2', 'u', '2026-11-01T09:00:00Z')
         self.grade()
         self.assertEqual(calls, [('alpha', 'a1'), ('alpha', 'a2')])
 
@@ -204,7 +209,7 @@ class GitHubAdapterTests(unittest.TestCase):
 
     def pr(self, number, login, state='open', merged=False, kind='User'):
         return {'number': number, 'user': {'login': login, 'type': kind}, 'state': state,
-                'merged_at': '2026-01-01' if merged else None, 'head': {'sha': f's{number}'}, 'html_url': f'u{number}'}
+                'merged_at': '2026-01-01' if merged else None, 'head': {'sha': f's{number}'}, 'html_url': f'u{number}', 'created_at': f'2026-10-{number}'}
 
     def test_lists_submissions_across_pages_and_skips_what_is_not_one(self):
         page1 = [self.pr(n, f'p{n}') for n in range(1, 101)]
@@ -214,7 +219,7 @@ class GitHubAdapterTests(unittest.TestCase):
                      '/repos/Owner/repo/pulls?state=all&per_page=100&page=2': page2}
         prs = grade.GitHub(api=responses.__getitem__).pull_requests('Owner/repo')
         self.assertEqual(len(prs), 101)
-        self.assertEqual(prs[-1], grade.PullRequest(104, 'merged', 's104', 'u104'))
+        self.assertEqual(prs[-1], grade.PullRequest(104, 'merged', 's104', 'u104', '2026-10-104'))
         self.assertNotIn('quitter', [p.login for p in prs])
 
     def test_display_name_falls_back_to_the_login_when_unset(self):

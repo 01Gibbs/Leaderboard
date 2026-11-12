@@ -143,6 +143,7 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
     <span>Correct solution <b data-points="correct"></b></span>
     <span>Each stretch task <b data-points="stretch" data-plus></b></span>
     <span>Each time helping a colleague <b data-points="helped" data-plus></b></span>
+    <span>First <b data-early-count></b> pull requests on each exercise <b data-points="stretch" data-plus></b> stretch</span>
     <span>Bonus points from facilitators</span>
   </div>
 
@@ -195,13 +196,7 @@ function say(text, isErr) {
 /* ---- scoring: the rules and the CSV reading are in scoring.js, shared with the grader ---- */
 function trackOf(p, k) { return p.tracks[k] || 'none'; }
 function countState(p, s) { return TRACKS.filter((t) => trackOf(p, t.k) === s).length; }
-function ranked() {
-  const list = rows.map((p) => ({ p, pts: pointsOf(p, TRACKS) }));
-  list.sort((a, b) => b.pts - a.pts || a.p.name.localeCompare(b.p.name));
-  let prev = null, rank = 0;
-  list.forEach((r, i) => { if (r.pts !== prev) { rank = i + 1; prev = r.pts; } r.rank = rank; });
-  return list;
-}
+function ranked() { return rankParticipants(rows, TRACKS); }
 
 /* ---- rendering ---- */
 function render() {
@@ -251,7 +246,7 @@ function render() {
     row.append(tracks);
     const xs = el('div', 'xs'); if (example) xs.dataset.tour = 'first-row-extras';
     const sc = el('div', 'num'), hc = el('div', 'num'), bc = el('div', 'num');
-    sc.append(el('span', 'lbl', 'Stretch '), document.createTextNode(String(p.stretch)));
+    sc.append(el('span', 'lbl', 'Stretch '), document.createTextNode(String(stretchOf(p))));
     hc.append(el('span', 'lbl', 'Helped '), document.createTextNode(String(p.helped)));
     bc.append(el('span', 'lbl', 'Bonus '), document.createTextNode(String(p.bonus)));
     xs.append(sc, hc, bc); row.append(xs);
@@ -272,8 +267,8 @@ function renderReco(list) {
     const ok = list.filter((r) => trackOf(r.p, t.k) === 'correct');
     if (ok.length) groups.push(['Correct: ' + t.label, ok.length + ' correct solution' + (ok.length === 1 ? '' : 's') + '.', namesOf(ok)]);
   });
-  const maxS = Math.max(0, ...list.map((r) => r.p.stretch));
-  if (maxS > 0) groups.push(['Went beyond the brief', maxS + ' stretch task' + (maxS === 1 ? '' : 's') + ' completed.', namesOf(list.filter((r) => r.p.stretch === maxS))]);
+  const maxS = Math.max(0, ...list.map((r) => stretchOf(r.p)));
+  if (maxS > 0) groups.push(['Went beyond the brief', maxS + ' stretch credit' + (maxS === 1 ? '' : 's') + ' earned.', namesOf(list.filter((r) => stretchOf(r.p) === maxS))]);
   const maxH = Math.max(0, ...list.map((r) => r.p.helped));
   if (maxH > 0) groups.push(['Helped colleagues most', 'Helped a colleague ' + maxH + ' time' + (maxH === 1 ? '' : 's') + '.', namesOf(list.filter((r) => r.p.helped === maxH))]);
   const tried = list.filter((r) => TRACKS.every((t) => trackOf(r.p, t.k) !== 'none'));
@@ -306,6 +301,7 @@ function load(text) {
   rows = read.rows; skipped = read.skipped; TRACKS = read.tracks;
 }
 
+document.querySelectorAll('[data-early-count]').forEach((b) => { b.textContent = RULES.earlyBonus.firstSubmissions; });
 document.querySelectorAll('[data-points]').forEach((b) => {
   b.textContent = (b.hasAttribute('data-plus') ? '+' : '') + RULES.points[b.dataset.points];
 });

@@ -20,8 +20,10 @@ TRACKS = ['fizzbuzz', 'rest_api', 'framework_upgrade']
 
 # Each case is a participants.csv someone could plausibly produce, by hand, in Excel, or by the grader.
 CASES = {
-    'plain': 'name,github,fizzbuzz,rest_api,framework_upgrade,stretch,helped,bonus\n'
-             'Ann,ann,correct,submitted,,1,2,3\nBob,,submitted,,,,,\n',
+    'plain': 'name,github_username,fizzbuzz,rest_api,framework_upgrade,stretch,pr_stretch,helped,bonus\n'
+             'Ann,ann,correct,submitted,,1,2,2,3\nBob,,submitted,,,,,,\n',
+    'pr1_live_format': 'name,github_username,fizzbuzz,rest_api,framework_upgrade,stretch,pr_stretch,helped\n'
+                       'j-r-wil,j-r-wil,Correct,Correct,Correct,1,2,\naindroid,aindroid,none,Correct,Correct,2,1,1,\n',
     'excel_semicolons_bom_crlf': '﻿name;github;fizzbuzz;rest_api;framework_upgrade;stretch;helped;bonus\r\n'
                                  'Ann;ann;Yes;in review;;2;;-4\r\n',
     'tabs_and_messy_headers': ' Name \tGitHub\tFizzBuzz\tREST-API\tFramework  Upgrade\tStretch\tHelped\tBonus\n'
@@ -65,6 +67,17 @@ def grader_results():
     return out
 
 
+RANK_HARNESS = r'''
+const fs = require('fs'), vm = require('vm');
+const ctx = {}; vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[1], 'utf8'), ctx);
+const tracks = [{ k: 'a' }, { k: 'b' }];
+const read = vm.runInContext('readParticipants', ctx)(fs.readFileSync(0, 'utf8'), tracks);
+const ranked = vm.runInContext('rankParticipants', ctx)(read.rows, tracks);
+process.stdout.write(JSON.stringify(ranked.map((r) => [r.rank, r.p.name, r.pts])));
+'''
+
+
 class RulesTests(unittest.TestCase):
     def test_the_rules_are_read_from_the_page(self):
         self.assertEqual(rules.RULES['points']['correct'], 30)
@@ -74,7 +87,12 @@ class RulesTests(unittest.TestCase):
         people = rules.read_participants(CASES['plain'], TRACKS)
         ann = people['rows'][0]
         self.assertEqual(ann['tracks'], {'fizzbuzz': 'correct', 'rest_api': 'submitted', 'framework_upgrade': 'none'})
-        self.assertEqual(rules.points(ann, TRACKS), 30 + 10 + 1 * 5 + 2 * 5 + 3)  # 58
+        self.assertEqual(rules.points(ann, TRACKS), 30 + 10 + (1 + 2) * 5 + 2 * 5 + 3)  # stretch + early-PR bonus, 68
+
+    def test_old_and_pr1_header_spellings(self):
+        for header in ('github', 'GitHub Username', 'github_username'):
+            self.assertEqual(rules.norm_header(header), 'github_username', header)
+        self.assertEqual(rules.norm_header('PR Stretch'), 'pr_stretch')
 
     def test_status_words(self):
         for word, status in [('Yes', 'correct'), (' PASS ', 'correct'), ('in review', 'submitted'), ('maybe', 'none'), ('', 'none')]:
@@ -99,6 +117,13 @@ class ParityTests(unittest.TestCase):
         for name in CASES:
             with self.subTest(name):
                 self.assertEqual(self.page[name], self.grader[name])
+
+    def test_ties_are_ranked_by_correct_exercises_then_name(self):
+        csv_text = 'name,a,b,stretch\nZed,correct,submitted,\nAmy,submitted,submitted,4\nBen,correct,,2\nCal,,,\n'
+        r = subprocess.run(['node', '-e', RANK_HARNESS, str(ROOT / 'scoring.js')], input=csv_text, capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        # Zed, Amy and Ben all have 40 points: Zed and Ben have one correct exercise, so they come first (by name).
+        self.assertEqual(json.loads(r.stdout), [[1, 'Ben', 40], [1, 'Zed', 40], [1, 'Amy', 40], [4, 'Cal', 0]])
 
     def test_cases_cover_what_they_claim(self):
         self.assertEqual([p['name'] for p in self.page['quotes_commas_and_blank_rows']['people']], ['Rao, Asha "AR"'])

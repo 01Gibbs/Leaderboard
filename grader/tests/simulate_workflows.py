@@ -64,11 +64,11 @@ def expect(cond, msg):
 # A scratch copy of the repository with a local bare 'origin', like GitHub.
 shutil.copytree(SRC, work / 'seed', ignore=shutil.ignore_patterns('.git', '__pycache__'))
 # Fixed participants, so this does not depend on the real scores.
-(work / 'seed' / 'participants.csv').write_text('''name,github,fizzbuzz,rest_api,framework_upgrade,container_image,stretch,helped,bonus
-Stuart Smith,StuartJSmith10-dev,correct,,,,1,,
-madbpopye,madbpopye,submitted,submitted,,,,,
-bukkie-create,bukkie-create,submitted,submitted,,,,,
-Josh,j-r-wil,submitted,submitted,submitted,,,,
+(work / 'seed' / 'participants.csv').write_text('''name,github_username,fizzbuzz,rest_api,framework_upgrade,container_image,stretch,helped,bonus,pr_stretch
+Stuart Smith,StuartJSmith10-dev,correct,,,,1,,,
+madbpopye,madbpopye,submitted,submitted,,,,,,
+bukkie-create,bukkie-create,submitted,submitted,,,,,,
+Josh,j-r-wil,submitted,submitted,submitted,,,,,
 ''')
 (work / 'seed' / 'grader' / 'results.json').write_text('{"people": {}, "submissions": {}}\n')
 (work / 'seed' / 'grader' / 'history.json').unlink(missing_ok=True)
@@ -106,13 +106,13 @@ def row(name):
 print('Facilitator journeys')
 ok, s = run_facilitator('facilitator-award.yml', {'person': 'stuart smith', 'kind': 'helped', 'amount': '2'})
 expect(ok and '✅ Gave 2 helps to Stuart Smith' in s, 'award: run succeeds and summary says what changed')
-expect(row('Stuart Smith').endswith(',1,2,'), 'award: helped is 2 at origin')
+expect(row('Stuart Smith').endswith(',1,2,,'), 'award: helped is 2 at origin')
 expect('facilitator-ann: Gave 2 helps' in s, 'award: recent actions list who did it')
 log = sh('git log -1 --format=%s%n%b', clone).stdout
 expect('Leaderboard: Gave 2 helps to Stuart Smith' in log and '@facilitator-ann' in log, 'award: commit message names the change and the facilitator')
 
 ok, s = run_facilitator('facilitator-award.yml', {'person': 'StuartJSmith10-dev', 'kind': 'bonus', 'amount': '-3'})
-expect(ok and row('Stuart Smith').endswith(',1,2,-3'), 'award: negative bonus by GitHub login')
+expect(ok and row('Stuart Smith').endswith(',1,2,-3,'), 'award: negative bonus by GitHub login')
 
 ok, s = run_facilitator('facilitator-rename.yml', {'person': 'madbpopye', 'new_name': 'Ali "The Builder" O\'Neil, $(whoami)'})
 expect(ok and '"Ali ""The Builder"" O\'Neil, $(whoami)",madbpopye' in csv_at_origin(), 'rename: quotes, commas and $(...) stay plain text')
@@ -123,7 +123,7 @@ expect(ok and ok2 and row('Bukky Adeyemi').startswith('Bukky Adeyemi,,,,,,3'), '
 
 ok, s = run_facilitator('facilitator-merge.yml', {'keep': 'Bukky Adeyemi', 'duplicate': 'bukkie-create'})
 merged = row('Bukky Adeyemi')
-expect(ok and merged == 'Bukky Adeyemi,bukkie-create,submitted,submitted,,,3,,', 'merge: higher value of each column kept, GitHub login carried over')
+expect(ok and merged == 'Bukky Adeyemi,bukkie-create,submitted,submitted,,,3,,,', 'merge: higher value of each column kept, GitHub login carried over')
 expect('bukkie-create,bukkie-create' not in csv_at_origin(), 'merge: duplicate row removed')
 
 ok, s = run_facilitator('facilitator-mark.yml', {'person': 'Bukky Adeyemi', 'lesson': 'container_image', 'status': 'correct'})

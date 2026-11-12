@@ -68,6 +68,7 @@ export function steps(ctx) {
       title: 'How points work',
       target: 'rubric',
       text: `<p>Each exercise is worth <b>${pts.submitted}</b> when submitted and <b>${pts.correct}</b> when correct. Facilitators add <b>+${pts.stretch}</b> per stretch task, <b>+${pts.helped}</b> per time someone helped a colleague, and any bonus points.</p>
+        <p>The first ${RULES.earlyBonus.firstSubmissions} pull requests on each exercise also earn a stretch credit, worked out automatically.</p>
         <p>These numbers live in one file, <code>scoring.js</code>, which the page and the grader both read.</p>`,
     },
     {
@@ -87,7 +88,7 @@ export function steps(ctx) {
       chapter: 'The leaderboard',
       title: 'Points from facilitators',
       target: 'first-row-extras',
-      text: '<p>Stretch tasks, help given and bonus points. Only facilitators change these, with the <b>Award points</b> form (later in this tour).</p>',
+      text: '<p>Stretch tasks, help given and bonus points. Facilitators give these with the <b>Award points</b> form (later in this tour).</p><p>Stretch also includes the early pull request credit, which the grader adds by itself.</p>',
     },
     {
       chapter: 'The leaderboard',

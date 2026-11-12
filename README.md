@@ -23,7 +23,7 @@ facilitator fills in a form in the Actions tab (award, merge, undo...) ─┘
 The grader never lowers a result, so a facilitator's changes are never overwritten by the next grading run.
 
 ## Points
-Submitted **10**, correct **30**, each stretch task **+5**, each time helping a colleague **+5**, plus any bonus points a facilitator gives. They live in one place, the `RULES` block at the top of `scoring.js`, which the page and the grader both read.
+Submitted **10**, correct **30**, each stretch credit **+5**, each time helping a colleague **+5**, plus any bonus points a facilitator gives. The first **3** pull requests on each exercise earn their authors a stretch credit each (the `pr_stretch` column, worked out by the grader on every run; don't edit it). Equal points are ranked by number of correct exercises. They live in one place, the `RULES` block at the top of `scoring.js`, which the page and the grader both read.
 
 ## One-time setup (repository owner)
 1. **Publish the page:** Settings → Pages → *Source* → **GitHub Actions**. The *Publish the page* workflow deploys it after every change. The site appears at `https://<owner>.github.io/<repository>/`.

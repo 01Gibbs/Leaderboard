@@ -24,10 +24,10 @@ LESSONS = [
     {'key': 'rest_api', 'label': 'REST API', 'repo': 'o/rest', 'check': 'rest_api'},
     {'key': 'manual', 'label': 'Manual', 'repo': 'o/manual', 'check': 'none'},
 ]
-CSV = '''name,github,fizzbuzz,rest_api,manual,stretch,helped,bonus
-Stuart Smith,StuartJSmith10-dev,correct,,,1,,
-Bukky Adeyemi,,,,,2,1,
-bukkie-create,bukkie-create,submitted,submitted,,,3,
+CSV = '''name,github_username,fizzbuzz,rest_api,manual,stretch,helped,bonus,pr_stretch
+Stuart Smith,StuartJSmith10-dev,correct,,,1,,,
+Bukky Adeyemi,,,,,2,1,,
+bukkie-create,bukkie-create,submitted,submitted,,,3,,
 '''
 
 
@@ -61,9 +61,11 @@ class Sandbox(unittest.TestCase):
         return self.roster().find(who)
 
     def results(self, *subs):
+        """Each submission: (login, lesson, passed[, profile name]). They were opened in the order given."""
         people = {s[0]: s[3] if len(s) > 3 else s[0] for s in subs}
         data = {'people': people, 'submissions': {
-            f'o/x#{i}': {'login': s[0], 'task': s[1], 'passed': s[2]} for i, s in enumerate(subs)}}
+            f'o/{s[1]}#{i}': {'login': s[0], 'task': s[1], 'passed': s[2], 'created_at': f'2026-11-01T00:00:{i:02d}Z'}
+            for i, s in enumerate(subs)}}
         (self.dir / 'grader' / 'results.json').write_text(json.dumps(data))
 
 
@@ -161,7 +163,7 @@ class MergeTests(Sandbox):
         r = self.roster()
         self.assertEqual(len(r.rows()), 2)
         row = r.find('Bukky Adeyemi')
-        self.assertEqual((row['github'], row['fizzbuzz'], row['rest_api'], row['stretch'], row['helped']),
+        self.assertEqual((row['github_username'], row['fizzbuzz'], row['rest_api'], row['stretch'], row['helped']),
                          ('bukkie-create', 'submitted', 'submitted', '2', '3'))
 
     def test_merged_row_is_not_recreated_by_the_grader(self):
@@ -184,7 +186,7 @@ class MergeTests(Sandbox):
     def test_two_github_accounts_on_one_row_both_count(self):
         self.cli('add', 'Alt', 'second-account')
         self.cli('merge', 'Bukky Adeyemi', 'bukkie-create', 'second-account')
-        self.assertEqual(self.row('second-account')['github'], 'bukkie-create second-account')
+        self.assertEqual(self.row('second-account')['github_username'], 'bukkie-create second-account')
         self.results(('second-account', 'rest_api', True))
         self.cli('apply')
         self.assertEqual(self.row('Bukky Adeyemi')['rest_api'], 'correct')
@@ -314,7 +316,72 @@ class ApplyTests(Sandbox):
         self.assertIn('docker', self.roster().columns())
 
 
+class EarlyBonusTests(Sandbox):
+    """The first three pull requests on each exercise earn their authors +1 stretch each (pr_stretch)."""
+
+    def bonus(self, who):
+        return self.row(who).get('pr_stretch', '')
+
+    def test_the_first_three_submissions_on_each_lesson_earn_one_each(self):
+        self.results(('a1', 'fizzbuzz', None), ('a2', 'fizzbuzz', None), ('a3', 'fizzbuzz', None), ('a4', 'fizzbuzz', None),
+                     ('a4', 'rest_api', None))
+        self.cli('apply')
+        self.assertEqual([self.bonus(x) for x in ('a1', 'a2', 'a3', 'a4')], ['1', '1', '1', '1'])  # a4: first on rest_api
+
+    def test_two_of_the_first_three_by_one_person_earn_two(self):
+        self.results(('a1', 'fizzbuzz', None), ('a1', 'fizzbuzz', None), ('a2', 'fizzbuzz', None))
+        self.cli('apply')
+        self.assertEqual((self.bonus('a1'), self.bonus('a2')), ('2', '1'))
+
+    def test_order_is_when_they_were_opened_not_how_results_are_stored(self):
+        self.results(('late', 'fizzbuzz', None), ('e1', 'fizzbuzz', None), ('e2', 'fizzbuzz', None), ('e3', 'fizzbuzz', None))
+        data = json.loads((self.dir / 'grader' / 'results.json').read_text())
+        data['submissions']['o/fizzbuzz#0']['created_at'] = '2026-12-01T00:00:00Z'
+        (self.dir / 'grader' / 'results.json').write_text(json.dumps(data))
+        self.cli('apply')
+        self.assertEqual((self.bonus('late'), self.bonus('e1')), ('', '1'))  # none is left blank
+
+    def test_results_without_an_opened_time_are_ordered_by_pull_request_number(self):
+        data = {'people': {}, 'submissions': {f'o/f#{n}': {'login': f'p{n}', 'task': 'fizzbuzz', 'passed': None,
+                                                           'url': f'https://github.com/o/f/pull/{n}'} for n in (10, 2, 3, 1)}}
+        (self.dir / 'grader' / 'results.json').write_text(json.dumps(data))
+        self.cli('apply')
+        self.assertEqual([self.bonus(f'p{n}') for n in (1, 2, 3, 10)], ['1', '1', '1', ''])
+
+    def test_recalculated_every_time_never_added_up(self):
+        self.results(('a1', 'fizzbuzz', None))
+        self.cli('apply')
+        (self.dir / 'participants.csv').write_text(self.csv_text().replace('a1,a1,submitted,,,,,,1', 'a1,a1,submitted,,,,,,9'))
+        self.cli('apply')
+        self.cli('apply')
+        self.assertEqual(self.bonus('a1'), '1')
+
+    def test_counts_every_github_account_on_a_row_and_merge_recomputes_it(self):
+        self.results(('bukkie-create', 'fizzbuzz', None), ('second', 'rest_api', None))
+        self.cli('apply')
+        self.cli('merge', 'bukkie-create', 'second')
+        self.assertEqual(self.bonus('bukkie-create'), '2')
+
+    def test_counts_as_stretch_points(self):
+        keys = [l['key'] for l in LESSONS]
+        self.results(('a1', 'fizzbuzz', None))
+        self.cli('apply')
+        row = next(r for r in rules.read_participants(self.csv_text(), keys)['rows'] if r['name'] == 'a1')
+        self.assertEqual(rules.points(row, keys), 10 + 5)
+
+    def test_rows_without_a_github_account_are_left_alone(self):
+        self.results(('a1', 'fizzbuzz', None))
+        self.cli('apply')
+        self.assertEqual(self.bonus('Bukky Adeyemi'), '')
+
+
 class FileFormatTests(Sandbox):
+    def test_an_old_github_column_is_read_and_saved_as_github_username(self):
+        (self.dir / 'participants.csv').write_text(CSV.replace('github_username', 'github'))
+        self.cli('award', 'StuartJSmith10-dev', 'helped')
+        self.assertTrue(self.csv_text().startswith('name,github_username,'))
+        self.assertEqual(self.row('StuartJSmith10-dev')['helped'], '1')
+
     def test_semicolon_and_bom_from_excel_survive_a_change(self):
         (self.dir / 'participants.csv').write_text('﻿' + CSV.replace(',', ';'), encoding='utf-8')
         self.cli('award', 'Stuart Smith', 'helped')

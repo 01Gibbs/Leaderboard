@@ -33,6 +33,7 @@ SAMPLE_PEOPLE = [('Asha Rao', 'asha-rao'), ('Ben Okafor', 'benok'), ('Chloe Mart
                  ('Isla Murray', 'islam'), ('Jonas Weber', 'jweber')]
 SAMPLE_STATES = ['correct', 'submitted', '', 'submitted']
 SAMPLE_EXTRAS = [(2, 1, 5), (1, 3, 0), (0, 0, 0), (3, 0, 0), (0, 2, 0), (1, 0, 10), (0, 1, 0), (0, 0, 0), (2, 0, 0), (0, 0, 0)]
+SAMPLE_EARLY = [2, 1, 0, 1, 0, 0, 0, 0, 0, 0]  # early-PR bonus (pr_stretch)
 
 
 def sample_csv(lesson_keys):
@@ -40,10 +41,11 @@ def sample_csv(lesson_keys):
     a mix of correct, submitted and not yet, plus some stretch, helped and bonus points."""
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator='\n')
-    w.writerow([*rules.BASE_COLUMNS, *lesson_keys, *rules.COUNTS])
+    w.writerow([*rules.BASE_COLUMNS, *lesson_keys, *rules.COUNTS, *rules.GENERATED])
     for i, ((name, login), extras) in enumerate(zip(SAMPLE_PEOPLE, SAMPLE_EXTRAS)):
         states = ['correct'] * len(lesson_keys) if i == 0 else [SAMPLE_STATES[(i + 2 * j) % 4] for j in range(len(lesson_keys))]
-        w.writerow([name, login, *states, *(str(n) if n else '' for n in extras)])
+        early = SAMPLE_EARLY[i]
+        w.writerow([name, login, *states, *(str(n) if n else '' for n in extras), str(early) if early else ''])
     return buf.getvalue()
 
 

@@ -25,6 +25,8 @@ STATUSES = ['none', 'submitted', 'correct']  # lowest to highest
 RANK = {s: i for i, s in enumerate(STATUSES)}
 BASE_COLUMNS = list(RULES['baseColumns'])
 COUNTS = list(RULES['counts'])
+EARLY_BONUS = RULES['earlyBonus']  # the grader works out this column; facilitators do not edit it
+GENERATED = [EARLY_BONUS['column']]
 
 
 def parse_csv(text):
@@ -67,7 +69,8 @@ def parse_csv(text):
 
 
 def norm_header(h):
-    return re.sub(r'[\s-]+', '_', h.strip().lower())
+    key = re.sub(r'[\s-]+', '_', h.strip().lower())
+    return RULES['headerAliases'].get(key, key)
 
 
 def norm_status(v):
@@ -106,11 +109,13 @@ def read_participants(text, tracks):
             skipped += 1
             continue
         rows.append({'name': name, 'tracks': {k: norm_status(cell(r, k)) for k in tracks},
-                     'stretch': to_count(cell(r, 'stretch')), 'helped': to_count(cell(r, 'helped')), 'bonus': to_int(cell(r, 'bonus'))})
+                     'stretch': to_count(cell(r, 'stretch')), 'prStretch': to_count(cell(r, EARLY_BONUS['column'])),
+                     'helped': to_count(cell(r, 'helped')), 'bonus': to_int(cell(r, 'bonus'))})
     return {'rows': rows, 'skipped': skipped}
 
 
 def points(participant, tracks):
     p = RULES['points']
     return (sum(p[participant['tracks'].get(k, 'none')] for k in tracks)
-            + participant['stretch'] * p['stretch'] + participant['helped'] * p['helped'] + participant['bonus'] * p['bonus'])
+            + (participant['stretch'] + participant['prStretch']) * p['stretch']
+            + participant['helped'] * p['helped'] + participant['bonus'] * p['bonus'])

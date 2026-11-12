@@ -105,14 +105,14 @@ class SampleDataTests(unittest.TestCase):
 
     def test_has_a_column_for_every_lesson(self):
         head = walkthrough.sample_csv(self.KEYS).splitlines()[0].split(',')
-        self.assertEqual(head, ['name', 'github', *self.KEYS, 'stretch', 'helped', 'bonus'])
+        self.assertEqual(head, ['name', 'github_username', *self.KEYS, 'stretch', 'helped', 'bonus', 'pr_stretch'])
 
     def test_shows_every_state_the_tour_talks_about(self):
         rows = self.parsed()
         statuses = {s for r in rows for s in r['tracks'].values()}
         self.assertEqual(statuses, {'none', 'submitted', 'correct'})
         self.assertTrue(all(s == 'correct' for s in rows[0]['tracks'].values()), 'someone is correct on every exercise')
-        self.assertTrue(all(any(r[k] for r in rows) for k in ('stretch', 'helped', 'bonus')))
+        self.assertTrue(all(any(r[k] for r in rows) for k in ('stretch', 'prStretch', 'helped', 'bonus')))
         self.assertGreaterEqual(len(rows), 8)
 
     def test_is_the_same_every_time(self):

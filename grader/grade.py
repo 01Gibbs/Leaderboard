@@ -28,6 +28,7 @@ class PullRequest(NamedTuple):
     login: str
     sha: str
     url: str
+    created_at: str = ''  # when it was opened: the first few on each lesson earn the early-PR bonus
 
 
 class GitHub:
@@ -54,7 +55,7 @@ class GitHub:
                 withdrawn = pr['state'] == 'closed' and not pr.get('merged_at')
                 if pr['user']['type'] == 'Bot' or pr['user']['login'].lower() == owner or withdrawn:
                     continue
-                out.append(PullRequest(pr['number'], pr['user']['login'], pr['head']['sha'], pr['html_url']))
+                out.append(PullRequest(pr['number'], pr['user']['login'], pr['head']['sha'], pr['html_url'], pr.get('created_at') or ''))
             if len(batch) < 100:
                 return out
             page += 1
@@ -119,7 +120,7 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
                 except (urllib.error.URLError, OSError):
                     people[pr.login] = pr.login
             previous = subs.get(key, {})
-            entry = {'task': lesson.key, 'login': pr.login, 'url': pr.url, 'sha': pr.sha, 'check': lesson.check}
+            entry = {'task': lesson.key, 'login': pr.login, 'url': pr.url, 'sha': pr.sha, 'check': lesson.check, 'created_at': pr.created_at}
             if still_valid(previous, pr, lesson):
                 subs[key] = {**previous, **entry}
                 continue
