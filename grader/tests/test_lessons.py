@@ -75,6 +75,22 @@ class CheckTests(Sandbox):
         self.assertIs(by_key['fizzbuzz'].runner, checks.CHECKS['fizzbuzz'])
         self.assertIsNone(by_key['manual'].runner)
 
+    def test_each_check_is_a_module_named_after_it(self):
+        import checks
+        modules = {f.stem for f in (lessons.HERE / 'checks').glob('*.py')} - {'__init__', *checks.SHARED}
+        self.assertEqual(set(checks.CHECKS), modules)
+        for name, runner in checks.CHECKS.items():
+            self.assertEqual(runner.__module__, f'checks.{name}')
+
+    def test_a_check_imports_only_the_shared_modules_so_its_version_covers_its_code(self):
+        import re
+        import checks
+        for name in checks.CHECKS:
+            source = (lessons.HERE / 'checks' / f'{name}.py').read_text()
+            used = set(re.findall(r'^from \.(\w+) import|^from checks\.(\w+) import', source, re.M))
+            others = {m for pair in used for m in pair if m} - set(checks.SHARED)
+            self.assertEqual(others, set(), f'checks/{name}.py imports another check')
+
     def test_test_files_live_in_the_lessons_fixture_folder(self):
         self.assertEqual(self.load()[2].test_files, self.fixtures / 'upgrade')
 
@@ -103,32 +119,33 @@ class VersionTests(Sandbox):
         self.assertNotEqual(before['manual'], after['manual'])
         self.assertEqual((before['fizzbuzz'], before['upgrade']), (after['fizzbuzz'], after['upgrade']))
 
-    def test_editing_one_check_regrades_only_its_lesson_but_shared_code_regrades_all(self):
+    def test_editing_a_check_module_regrades_only_its_lessons(self):
         import importlib
         import checks
-        module = self.dir / 'stand_in_checks.py'
-        source = ('def helper():\n    return 1\n\n\n'
-                  'def check_a(ws, lesson):\n    return helper() == 1, ["a"]\n\n\n'
-                  'def check_b(ws, lesson):\n    return True, ["b"]\n')
+        source = 'LIMIT = 1\n\n\ndef check(ws, lesson):\n    return LIMIT == 1, ["ok"]\n'
         sys.path.insert(0, str(self.dir))
         self.addCleanup(sys.path.remove, str(self.dir))
 
-        def versions(text):
-            module.write_text(text)
-            sys.modules.pop('stand_in_checks', None)
-            m = importlib.import_module('stand_in_checks')
-            with mock.patch.dict(checks.CHECKS, {'check_a': m.check_a, 'check_b': m.check_b}):
+        def versions(a_text, b_text):
+            stand_ins = {}
+            for name, text in (('stand_in_a', a_text), ('stand_in_b', b_text)):
+                (self.dir / f'{name}.py').write_text(text)
+                sys.modules.pop(name, None)
+                stand_ins[name] = importlib.import_module(name).check
+            with mock.patch.dict(checks.CHECKS, {'check_a': stand_ins['stand_in_a'], 'check_b': stand_ins['stand_in_b']}):
                 self.write([{'key': 'a', 'label': 'A', 'repo': 'o/a', 'check': 'check_a'},
                             {'key': 'b', 'label': 'B', 'repo': 'o/b', 'check': 'check_b'}])
                 return {l.key: l.version for l in self.load()}
 
-        before = versions(source)
-        after_a = versions(source.replace('["a"]', '["a, edited"]'))
-        self.assertNotEqual(before['a'], after_a['a'])
-        self.assertEqual(before['b'], after_a['b'])
-        after_helper = versions(source.replace('return 1', 'return 2'))
-        self.assertNotEqual(before['a'], after_helper['a'])
-        self.assertNotEqual(before['b'], after_helper['b'])
+        before = versions(source, source)
+        after = versions(source.replace('LIMIT = 1', 'LIMIT = 2'), source)  # a constant, not just the function
+        self.assertNotEqual(before['a'], after['a'])
+        self.assertEqual(before['b'], after['b'])
+
+    def test_the_toolkit_and_the_executor_are_shared_by_every_check(self):
+        self.assertIn(lessons.HERE / 'executor.py', lessons.SHARED_CODE)
+        self.assertIn(lessons.HERE / 'checks' / 'toolkit.py', lessons.SHARED_CODE)
+        self.assertTrue(all(p.exists() for p in lessons.SHARED_CODE))
 
     def test_the_code_that_runs_participant_code_is_part_of_every_version(self):
         with mock.patch.object(lessons, 'SHARED_CODE', [self.dir / 'executor_stand_in.py']):

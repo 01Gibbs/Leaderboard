@@ -11,13 +11,15 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 
+import checks
 import rules
 
 HERE = Path(__file__).resolve().parent
 LESSONS_FILE = HERE.parent / 'lessons.json'
 FIXTURES = HERE / 'fixtures'
 RESERVED = tuple(rules.BASE_COLUMNS + rules.COUNTS)  # participants.csv columns that are not lessons
-SHARED_CODE = [HERE / 'executor.py']  # runs every check, so a change to it regrades every automated lesson
+# Used by every check, so a change to any of these regrades every automated lesson.
+SHARED_CODE = [HERE / 'executor.py'] + [HERE / 'checks' / f'{m}.py' for m in checks.SHARED]
 
 
 class LessonsInvalid(Exception):
@@ -31,24 +33,23 @@ class Lesson:
     key: str          # the participants.csv column
     label: str        # shown on the page
     repo: str         # owner/name: where participants open pull requests
-    check: str        # how "correct" is decided: 'none' or a name in checks.CHECKS
-    test_files: Path  # our test files for this lesson, copied over each submission (check "tests")
+    check: str        # how "correct" is decided: 'none' or a name in checks.CHECKS (a module in grader/checks/)
+    test_files: Path  # our files for this lesson: tests copied over each submission, or a check's reference files
 
     @property
     def runner(self):
         """The check function, or None when a facilitator marks the lesson by hand."""
-        import checks
         return checks.CHECKS.get(self.check)
 
     @cached_property
     def version(self):
-        """Changes whenever anything that decides this lesson's results changes: its check name, its check
-        function, the code shared by checks (helpers next to it, and SHARED_CODE), or its test files. Another
-        lesson's check function is left out, so editing one check regrades only its lesson.
+        """Changes whenever anything that decides this lesson's results changes: its check name, its check's
+        module (grader/checks/<check>.py, constants included), the code every check shares (SHARED_CODE), or
+        its test files. Other checks' modules are left out, so editing one check regrades only its lessons.
         Results graded under another version are graded again."""
         h = hashlib.sha256(self.check.encode())
         if self.runner:
-            h.update(_check_source(self.runner).encode())
+            h.update(Path(inspect.getsourcefile(self.runner)).read_bytes())
             for f in SHARED_CODE:
                 h.update(Path(f).read_bytes())
         if self.test_files.is_dir():
@@ -58,22 +59,8 @@ class Lesson:
         return h.hexdigest()[:12]
 
 
-def _check_source(runner):
-    """The source file defining `runner`, minus the other checks defined in it."""
-    import checks
-    text = Path(inspect.getsourcefile(runner)).read_text()
-    for other in set(checks.CHECKS.values()) - {runner}:
-        try:
-            if inspect.getsourcefile(other) == inspect.getsourcefile(runner):
-                text = text.replace(inspect.getsource(other), '')
-        except (OSError, TypeError):
-            continue
-    return text
-
-
 def load(path=LESSONS_FILE, fixtures=FIXTURES):
     """The lessons, in order. Raises LessonsInvalid listing every problem."""
-    import checks
     try:
         items = json.loads(Path(path).read_text(encoding='utf-8'))
     except (OSError, ValueError) as e:

@@ -136,7 +136,7 @@ export function steps(ctx) {
           <tr><th>${ctx.recent_actions.length ? fileLink(ctx, 'grader/history.json') : 'grader/history.json'}</th><td>Every facilitator change: who, when, what. Undo uses this. It appears after the first change.</td></tr>
           <tr><th>${fileLink(ctx, 'FACILITATOR.md')}</th><td>One-page guide for facilitators.</td></tr>
           <tr><th>${fileLink(ctx, 'README.md')}</th><td>Setup and how it works, for the project lead.</td></tr>
-          <tr><th>${fileLink(ctx, 'grader/checks.py', 'grader/')}</th><td>The grader and its tests, for maintainers.</td></tr>
+          <tr><th>${fileLink(ctx, 'grader/checks/toolkit.py', 'grader/')}</th><td>The grader and its tests, for maintainers.</td></tr>
         </table>`,
       text: '<p>Everything is in this one repository. Nothing needs installing to use it.</p>',
     },
@@ -225,7 +225,7 @@ export function steps(ctx) {
           <tr><th>key</th><td>The column in participants.csv. Lowercase letters, digits and _; never change it once people have results.</td></tr>
           <tr><th>label</th><td>The column heading on the leaderboard. Safe to change any time.</td></tr>
           <tr><th>repo</th><td>Where participants open their pull requests: ${link(example.repo_url, example.repo)}.</td></tr>
-          <tr><th>check</th><td>How \u201cCorrect\u201d is decided: <b>none</b> (a facilitator marks it), <b>build</b>, <b>tests</b> (our test files in grader/fixtures/&lt;key&gt;/), or a custom check written in grader/checks.py.</td></tr>
+          <tr><th>check</th><td>How \u201cCorrect\u201d is decided: <b>none</b> (a facilitator marks it), <b>build</b>, <b>tests</b> (our test files in grader/fixtures/&lt;key&gt;/), or a custom check written in grader/checks/&lt;name&gt;.py.</td></tr>
         </table>` : ''}
         ${ctx.lesson_problems.length ? `<h3>lessons.json has problems right now</h3><ul class="checks">${ctx.lesson_problems.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
           <p class="hint">Until they are fixed, grading and facilitator forms stop with this message, and nothing is changed.</p>` : ''}

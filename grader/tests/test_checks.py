@@ -16,6 +16,7 @@ from pathlib import Path
 GRADER = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GRADER))
 import checks  # noqa: E402
+from checks import container_image, fizzbuzz  # noqa: E402
 import grade  # noqa: E402
 import lessons  # noqa: E402
 
@@ -200,7 +201,7 @@ class GradleCheckTests(unittest.TestCase):
 class FizzBuzzSetupTests(unittest.TestCase):
     def test_every_planted_bug_still_applies_to_the_reference_fizzbuzz(self):
         reference = (lessons.FIXTURES / 'fizzbuzz' / 'FizzBuzz.java').read_text()
-        for label, old, new in checks.FIZZBUZZ_MUTANTS:
+        for label, old, new in fizzbuzz.MUTANTS:
             self.assertEqual(reference.count(old), 1, f'planted bug "{label}": "{old}" must appear once in FizzBuzz.java')
 
 
@@ -210,7 +211,7 @@ class DockerfileRuleTests(unittest.TestCase):
             Path(tmp, 'Dockerfile').write_text(dockerfile)
             if dockerignore:
                 Path(tmp, '.dockerignore').write_text('.git\nbuild\n')
-            return checks.dockerfile_problems(Path(tmp))
+            return container_image.dockerfile_problems(Path(tmp))
 
     def test_compliant_dockerfile(self):
         self.assertEqual(self.problems(GOOD_DOCKERFILE), [])

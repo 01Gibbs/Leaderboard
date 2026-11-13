@@ -47,7 +47,7 @@ Each lesson is one entry in `lessons.json`:
 | `none` | a facilitator marks it | none |
 | `build` | the submission builds | none |
 | `tests` | our tests pass against it | put test files in `grader/fixtures/<key>/`, mirroring the project's paths |
-| a custom name | anything a script can check | a function in `grader/checks.py` |
+| a custom name | anything a script can check | a module `grader/checks/<name>.py` |
 
 The current custom checks:
 - **FizzBuzz:** the participant's tests must pass against the real `FizzBuzz` and catch 7 deliberately broken versions.
@@ -65,7 +65,7 @@ The current custom checks:
   - `grade.py`: finds pull requests (GitHub, or an in-memory stand-in in tests) and grades the ones that need it.
   - `submissions.py`: `grader/results.json`, one entry per pull request: whether a result still counts, each person's best status, the early-PR bonus, per-lesson counts.
   - `executor.py`: the only way participant code runs: a clean environment, timeouts, clean-up, and the CI sandbox user.
-  - `checks.py`: the checks, built from the executor and a `RunningApp` (a jar or a container).
+  - `checks/`: one module per check (`build`, `tests`, and one per custom check), built from `checks/toolkit.py`: Gradle, the executor, and a `RunningApp` (a jar or a container). Editing a check's module regrades only the lessons that use it; editing the toolkit regrades them all.
   - `leaderboard.py`: the single command line, the same commands the forms run.
 - **Tests:** `python3 -m unittest discover grader/tests`. They run in CI on every change (*Test the grader*), including the workflow simulation in `grader/tests/simulate_workflows.py`, which runs every workflow's shell steps against a scratch repository. The check tests need a JDK and network access, and the container test needs Docker; each skips itself without them.
 - **Security:** pull-request code runs only in the grading job, which has a read-only token. Within that job it runs as a separate `grader-sandbox` user that cannot write to the grader or its results, and everything it started is killed after each check. Saving results happens in a separate job. Run `leaderboard.py grade` locally only with `--no-run`, because without it the grader builds and runs code from the pull requests.
