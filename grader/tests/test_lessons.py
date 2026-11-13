@@ -58,6 +58,15 @@ class LoadingTests(Sandbox):
         self.write([{'key': 'a', 'label': 'A', 'repo': 'o/a'}])
         self.assertEqual(self.load()[0].check, 'none')
 
+    def test_tests_commit_is_a_full_commit_id_on_a_tests_lesson(self):
+        sha = 'a' * 40
+        self.write([{'key': 'a', 'label': 'A', 'repo': 'o/a', 'check': 'tests', 'tests_commit': sha}])
+        self.assertEqual(self.load()[0].check, 'tests')
+        for item in ({'check': 'tests', 'tests_commit': 'main'}, {'check': 'build', 'tests_commit': sha}):
+            self.write([{'key': 'a', 'label': 'A', 'repo': 'o/a', **item}])
+            with self.assertRaisesRegex(lessons.LessonsInvalid, 'tests_commit'):
+                self.load()
+
     def test_not_a_list_or_not_json(self):
         for text in ('{not json', '{"key": "a"}'):
             self.file.write_text(text)

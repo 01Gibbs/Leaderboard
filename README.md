@@ -46,7 +46,7 @@ Each lesson is one entry in `lessons.json`:
 |---|---|---|
 | `none` | a facilitator marks it | none |
 | `build` | the submission builds | none |
-| `tests` | our tests pass against it | put test files in `grader/fixtures/<key>/`, mirroring the project's paths |
+| `tests` | our tests pass against it | none if the exercise repository ships the tests to make pass: `python3 grader/leaderboard.py pin-tests <key>` copies them, as of its latest commit, into `grader/fixtures/<key>/` and records the commit as `tests_commit`. Otherwise put test files there yourself, mirroring the project's paths |
 | a custom name | anything a script can check | a module `grader/checks/<name>.py` |
 
 The current custom checks:
@@ -60,6 +60,7 @@ The current custom checks:
 ## For maintainers
 - **Code:** Python 3 standard library only, in `grader/`, plus `scoring.js` at the top:
   - `scoring.js`: the rules (points, status words, how the CSV is read). The page loads it, and `grader/rules.py` reads the same rules, so the two can't disagree; a test runs both on tricky files to prove it.
+  - `exercise_tests.py`: `pin-tests`, which copies an exercise repository's own tests at one commit into a lesson's test files. Pinning a commit means a later change to the exercise repository regrades nobody until someone pins again.
   - `lessons.py`: loads and checks `lessons.json`; gives each lesson its check, test files and a version (changing one lesson re-grades only that lesson).
   - `roster.py`: every change to `participants.csv`: facilitator actions, undo, and applying graded results (results only go up).
   - `grade.py`: finds pull requests (GitHub, or an in-memory stand-in in tests) and grades the ones that need it.

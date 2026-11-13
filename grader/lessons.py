@@ -83,6 +83,8 @@ def load(path=LESSONS_FILE, fixtures=FIXTURES):
             problems.append(f'{where}: repo must look like owner/name')
         if check != 'none' and check not in checks.CHECKS:
             problems.append(f'{where}: check must be one of none, {", ".join(checks.CHECKS)}')
+        if 'tests_commit' in item and not (check == 'tests' and re.fullmatch(r'[0-9a-f]{40}', str(item['tests_commit']))):
+            problems.append(f'{where}: tests_commit must be a full commit id, on a lesson whose check is tests')
         out.append(Lesson(key, item.get('label', ''), item.get('repo', ''), check, Path(fixtures) / key))
     if problems:
         raise LessonsInvalid(problems)

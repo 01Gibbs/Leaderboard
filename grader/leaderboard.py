@@ -10,6 +10,8 @@ this is the same thing from a terminal. A person is named by their GitHub login 
   history  [count]                        list recent actions
   grade    [--no-run] [--only owner/repo#N]   grade new pull requests (normally run by GitHub Actions)
   apply                                   write graded results into participants.csv
+  pin-tests <lesson> [commit]             grade a lesson with its exercise repository's own tests, as they are at
+                                          that commit (default: the latest), copied into grader/fixtures/<lesson>/
 """
 import argparse
 import json
@@ -18,6 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import exercise_tests  # noqa: E402
 import grade  # noqa: E402
 import roster  # noqa: E402
 from rules import COUNTS, STATUSES  # noqa: E402
@@ -52,6 +55,9 @@ def parser():
     c.add_argument('--no-run', action='store_true', help='record submissions without running checks')
     c.add_argument('--only', help='grade one pull request, e.g. AtulKumarSharma79/Frameworkupgrade#3')
     sub.add_parser('apply', help='write graded results into participants.csv')
+    c = sub.add_parser('pin-tests', help="grade a lesson with its exercise repository's own tests")
+    c.add_argument('lesson')
+    c.add_argument('commit', nargs='?')
     return p
 
 
@@ -72,6 +78,11 @@ def run(argv, root):
         return board.undo()
     if a.cmd == 'history':
         return board.recent(a.count)
+    if a.cmd == 'pin-tests':
+        lessons_file, fixtures = root / 'lessons.json', root / 'grader' / 'fixtures'
+        sha = exercise_tests.pin(lessons_file, fixtures, a.lesson, a.commit)
+        count = sum(1 for f in (fixtures / a.lesson).rglob('*') if f.is_file())
+        return f'{a.lesson} is graded with its repository\'s {count} test files as of {sha[:7]}'
     if a.cmd == 'grade':
         grade.grade_all(root, no_run=a.no_run, only=a.only)
         return None
@@ -86,7 +97,7 @@ def main(argv, root=ROOT):
         argv = [str(v) for v in json.loads(argv[1])]
     try:
         summary = run(argv, Path(root))
-    except roster.ActionError as e:
+    except (roster.ActionError, exercise_tests.PinFailed) as e:
         report(f'Nothing was changed. {e}', failed=True)
         return 1
     if summary and argv[:1] == ['history']:
