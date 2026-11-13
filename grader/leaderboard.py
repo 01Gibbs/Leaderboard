@@ -94,7 +94,7 @@ def run(argv, root):
 def main(argv, root=ROOT):
     # Workflows pass their form inputs as one JSON array, so no input is ever read by a shell.
     if argv[:1] == ['--args-json']:
-        argv = [str(v) for v in json.loads(argv[1])]
+        argv = ['' if v is None else str(v) for v in json.loads(argv[1])]  # a blank optional field arrives as null
     try:
         summary = run(argv, Path(root))
     except (roster.ActionError, exercise_tests.PinFailed) as e:

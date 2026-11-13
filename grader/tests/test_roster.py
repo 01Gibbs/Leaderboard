@@ -400,6 +400,14 @@ class WorkflowInputTests(Sandbox):
         self.assertEqual(code, 0)
         self.assertEqual(self.row('StuartJSmith10-dev')['name'], 'Stu "$(rm -rf /)" O\'Neil; `x`')
 
+    def test_a_blank_optional_field_is_empty_not_the_word_none(self):
+        # A form field left blank can arrive as JSON null; two people added without a login must not clash.
+        for name in ('Ada Probe', 'Bob Probe'):
+            code, out, _ = self.cli('--args-json', json.dumps(['add', name, None]))
+            self.assertEqual(code, 0, out)
+        self.assertEqual(self.row('Ada Probe')['github_username'], '')
+        self.assertNotIn('None', self.csv_text())
+
     def test_failure_is_shown_on_the_run_page(self):
         summary = self.dir / 'summary.md'
         self.patch(leaderboard.os, 'environ', {'GITHUB_STEP_SUMMARY': str(summary)})
