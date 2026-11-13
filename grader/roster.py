@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import lessons
+from submissions import Submissions
 from rules import BASE_COLUMNS, COUNTS, EARLY_BONUS, GENERATED, RANK, STATUSES, norm_header, norm_status, parse_csv, to_int
 
 LOGIN = BASE_COLUMNS[1]  # the github_username column
@@ -126,7 +127,7 @@ class Roster:
         self.csv_file = root / 'participants.csv'
         self.lessons_file = root / 'lessons.json'
         self.history_file = root / 'grader' / 'history.json'
-        self.results_file = root / 'grader' / 'results.json'
+        self.root = root
 
     # ---------- reading ----------
 
@@ -289,43 +290,25 @@ class Roster:
     # ---------- graded results ----------
 
     def apply_results(self):
-        """Raise each person's exercise status to the best result of their pull requests (grader/results.json),
-        adding a row for anyone new. Never lowers a status. Returns (changes, warnings) as lines of text."""
-        results = json.loads(self.results_file.read_text()) if self.results_file.exists() else {}
-        subs, people = results.get('submissions', {}), results.get('people', {})
+        """Raise each person's exercise status to the best result of their pull requests (Submissions),
+        adding a row for anyone new, and set everyone's early-PR bonus. Never lowers a status.
+        Returns (changes, warnings) as lines of text."""
+        subs = Submissions(self.root)
         sheet = self._sheet()
         by_login, warnings = sheet.by_login()
         keys = set(sheet.lesson_keys)
 
-        best, spelling = {}, {}  # (login, lesson) -> status; lowercase login -> login as GitHub spells it
-        for s in subs.values():
-            if s['task'] not in keys:  # a lesson removed from lessons.json
-                continue
-            status = 'correct' if s.get('passed') else 'submitted'
-            k = (s['login'].lower(), s['task'])
-            spelling[k[0]] = s['login']
-            if RANK[status] > RANK.get(best.get(k), -1):
-                best[k] = status
-
         changes = []
-        for (login, lesson), status in sorted(best.items()):
-            row = by_login.get(login)
+        for login, lesson, status in subs.best_statuses(keys):
+            row = by_login.get(login.lower())
             if row is None:
-                gh = spelling[login]
-                row = by_login[login] = sheet.new_row(people.get(gh) or gh, gh)
-                changes.append(f'Added {row["name"]} (@{gh})')
+                row = by_login[login.lower()] = sheet.new_row(subs.name(login), login)
+                changes.append(f'Added {row["name"]} (@{login})')
             if RANK[status] > RANK[norm_status(row.get(lesson))]:
                 changes.append(f'{row["name"]}: {lesson} -> {status}')
                 row[lesson] = status
 
-        # Early-PR bonus: worked out from scratch every time, so it is never added up twice.
-        early = {}
-        for lesson in keys:
-            # Opened first = earliest created_at; results recorded before created_at existed fall back to PR number.
-            opened = sorted((s for s in subs.values() if s['task'] == lesson),
-                            key=lambda s: (s.get('created_at') or '', to_int(str(s.get('url', '')).rsplit('/', 1)[-1])))
-            for s in opened[:EARLY_BONUS['firstSubmissions']]:
-                early[s['login'].lower()] = early.get(s['login'].lower(), 0) + 1
+        early = subs.early_bonus(keys)
         column = EARLY_BONUS['column']
         for row in sheet.rows:
             if logins(row):

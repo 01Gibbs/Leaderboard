@@ -62,7 +62,8 @@ The current custom checks:
   - `scoring.js`: the rules (points, status words, how the CSV is read). The page loads it, and `grader/rules.py` reads the same rules, so the two can't disagree; a test runs both on tricky files to prove it.
   - `lessons.py`: loads and checks `lessons.json`; gives each lesson its check, test files and a version (changing one lesson re-grades only that lesson).
   - `roster.py`: every change to `participants.csv`: facilitator actions, undo, and applying graded results (results only go up).
-  - `grade.py`: finds pull requests (GitHub, or an in-memory stand-in in tests) and decides what to grade.
+  - `grade.py`: finds pull requests (GitHub, or an in-memory stand-in in tests) and grades the ones that need it.
+  - `submissions.py`: `grader/results.json`, one entry per pull request: whether a result still counts, each person's best status, the early-PR bonus, per-lesson counts.
   - `executor.py`: the only way participant code runs: a clean environment, timeouts, clean-up, and the CI sandbox user.
   - `checks.py`: the checks, built from the executor and a `RunningApp` (a jar or a container).
   - `leaderboard.py`: the single command line, the same commands the forms run.

@@ -1,8 +1,7 @@
 """Grading: find each lesson's pull requests and grade every commit not graded yet.
 
-Results go to grader/results.json, one entry per pull request, with the reasons it passed or failed;
-Roster.apply_results then moves them onto the leaderboard. The rules people rely on live here:
-  - each commit is graded once, and again only when its lesson changes (Lesson.version);
+Results are recorded in Submissions (grader/results.json), which also decides whether an earlier result
+still counts; Roster.apply_results then moves them onto the leaderboard. The rules people rely on live here:
   - a grader error (not the participant's fault) is recorded as passed=None and retried next run;
   - one repository being unreachable skips that repository, not the run.
 
@@ -14,13 +13,13 @@ import subprocess
 import traceback
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple
 
 import checks
 import executor
 import lessons
+import submissions
 
 
 class PullRequest(NamedTuple):
@@ -71,13 +70,6 @@ class GitHub:
                 raise subprocess.CalledProcessError(code, ['git', *args], out)
 
 
-def still_valid(previous, pr, lesson):
-    """Whether an earlier result for this pull request still counts: same commit, same lesson version, and
-    actually graded (a grader error or an ungraded entry does not count)."""
-    return (previous.get('passed') is not None and previous.get('sha') == pr.sha
-            and previous.get('version') == lesson.version)
-
-
 def grade_submission(lesson, source, pr, adapter=None):
     """Check out one pull request and run its lesson's check. Returns (passed, reasons): True or False for
     the participant's result, None when the grader itself failed (it is retried next run)."""
@@ -94,16 +86,11 @@ def grade_submission(lesson, source, pr, adapter=None):
 
 def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=print):
     """Grade every new commit on every lesson's repository; record the results in grader/results.json.
-    no_run: only record who submitted. only: grade just one pull request, e.g. "owner/repo#3"."""
+    no_run: only record who submitted. only: grade just one pull request, e.g. "owner/repo#3".
+    Returns the Submissions."""
     root = Path(root)
     source = source or GitHub()
-    results_file = root / 'grader' / 'results.json'
-    results = json.loads(results_file.read_text()) if results_file.exists() else {}
-    subs, people = results.setdefault('submissions', {}), results.setdefault('people', {})
-
-    def save():
-        results_file.write_text(json.dumps(results, indent=2, sort_keys=True) + '\n')
-
+    subs = submissions.Submissions(root)
     for lesson in lessons.load(root / 'lessons.json', fixtures=root / 'grader' / 'fixtures'):
         try:
             prs = source.pull_requests(lesson.repo)
@@ -111,32 +98,21 @@ def grade_all(root, source=None, adapter=None, no_run=False, only=None, log=prin
             log(f'Skipping {lesson.repo} this run: cannot list pull requests ({e})')
             continue
         for pr in prs:
-            key = f'{lesson.repo}#{pr.number}'
-            if only and key != only:
+            name = submissions.key(lesson, pr)
+            if only and name != only:
                 continue
-            if pr.login not in people:
+            if pr.login not in subs.names:
                 try:
-                    people[pr.login] = source.display_name(pr.login)
+                    subs.names[pr.login] = source.display_name(pr.login)
                 except (urllib.error.URLError, OSError):
-                    people[pr.login] = pr.login
-            previous = subs.get(key, {})
-            entry = {'task': lesson.key, 'login': pr.login, 'url': pr.url, 'sha': pr.sha, 'check': lesson.check, 'created_at': pr.created_at}
-            if still_valid(previous, pr, lesson):
-                subs[key] = {**previous, **entry}
+                    subs.names[pr.login] = pr.login
+            if no_run or not subs.needs_grading(lesson, pr):
+                subs.record(lesson, pr)
                 continue
-            if lesson.runner is None:
-                subs[key] = {**entry, 'passed': None, 'reasons': ['no automated check for this lesson; a facilitator marks it']}
-                continue
-            if no_run:
-                same_commit = previous.get('sha') == pr.sha
-                subs[key] = {**entry, 'passed': previous.get('passed') if same_commit else None,
-                             'reasons': previous.get('reasons', []) if same_commit else []}
-                continue
-            log(f'Grading {key} ({pr.login} @ {pr.sha[:7]})')
+            log(f'Grading {name} ({pr.login} @ {pr.sha[:7]})')
             passed, reasons = grade_submission(lesson, source, pr, adapter)
             log(f"  {({True: 'PASS', False: 'FAIL'}).get(passed, 'RETRY')}: " + ' | '.join(r.splitlines()[0] for r in reasons))
-            subs[key] = {**entry, 'passed': passed, 'reasons': reasons, 'version': lesson.version,
-                         'checked_at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
-            save()  # keep progress if a later one hangs
-    save()
-    return results
+            subs.record_result(lesson, pr, passed, reasons)
+            subs.save()  # keep progress if a later one hangs
+    subs.save()
+    return subs

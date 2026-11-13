@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT / 'grader'))
 import lessons  # noqa: E402
 import roster  # noqa: E402
 import rules  # noqa: E402
+import submissions  # noqa: E402
 CONTEXT_PATH = '/walkthrough/context.json'
 
 
@@ -59,13 +60,6 @@ def github_repo(root):
     return (m.group(1), m.group(2)) if m else None
 
 
-def read_json(path, default):
-    try:
-        return json.loads(path.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return default
-
-
 def build_context(root, sample=True):
     """Everything the walkthrough shows that comes from this repository: the GitHub links, the facilitator
     forms, each lesson with its submission counts, and recent facilitator actions."""
@@ -80,17 +74,18 @@ def build_context(root, sample=True):
         if name and 'workflow_dispatch' in text and f.name != 'facilitator-action.yml':
             forms.append({'file': f.name, 'name': name.group(1), 'url': f'{base}/actions/workflows/{f.name}' if base else None})
 
-    results = read_json(root / 'grader' / 'results.json', {}).get('submissions', {})
+    try:
+        stats = submissions.Submissions(root).stats
+    except (OSError, ValueError):  # a broken results.json: show no submissions rather than no walkthrough
+        stats = lambda key: dict.fromkeys(('submissions', 'people', 'correct'), 0)  # noqa: E731
     try:
         loaded, problems = lessons.load(root / 'lessons.json', fixtures=root / 'grader' / 'fixtures'), []
     except lessons.LessonsInvalid as e:
         loaded, problems = [], e.problems
     lesson_rows = []
     for lesson in loaded:
-        subs = [s for s in results.values() if s.get('task') == lesson.key]
         lesson_rows.append({'key': lesson.key, 'label': lesson.label, 'repo': lesson.repo, 'check': lesson.check,
-                            'repo_url': f'https://github.com/{lesson.repo}', 'submissions': len(subs),
-                            'people': len({s.get('login') for s in subs}), 'correct': sum(1 for s in subs if s.get('passed'))})
+                            'repo_url': f'https://github.com/{lesson.repo}', **stats(lesson.key)})
 
     history = roster.Roster(root).history()
     return {

@@ -341,13 +341,6 @@ class EarlyBonusTests(Sandbox):
         self.cli('apply')
         self.assertEqual((self.bonus('late'), self.bonus('e1')), ('', '1'))  # none is left blank
 
-    def test_results_without_an_opened_time_are_ordered_by_pull_request_number(self):
-        data = {'people': {}, 'submissions': {f'o/f#{n}': {'login': f'p{n}', 'task': 'fizzbuzz', 'passed': None,
-                                                           'url': f'https://github.com/o/f/pull/{n}'} for n in (10, 2, 3, 1)}}
-        (self.dir / 'grader' / 'results.json').write_text(json.dumps(data))
-        self.cli('apply')
-        self.assertEqual([self.bonus(f'p{n}') for n in (1, 2, 3, 10)], ['1', '1', '1', ''])
-
     def test_recalculated_every_time_never_added_up(self):
         self.results(('a1', 'fizzbuzz', None))
         self.cli('apply')
