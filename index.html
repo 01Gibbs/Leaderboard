@@ -268,13 +268,13 @@ let content = {
   leaderboardTag: 'Overall',
   workshopsTitle: "Workshops Delivered",
   workshops: [
-    { Workshop4: '11 Nov to 13 Nov', topic: 'Upgrade a Spring Boot Application to a New Major Version', lead: 'Shubhaja Menon' },
-    { Workshop3: '09 Nov to 10 Nov', topic: 'Build an Onboarding Tracker REST API with Spring Boot', lead: 'Shubhaja Menon' },
-    { Workshop2: '06 Nov', topic: 'writing meaningful unit tests and measuring code coverage', lead: 'James Wright' },
-    { Workshop1: '05 Nov', topic: 'Setup of development environment', lead: 'James Wright' },
+    { day: '11 Nov to 13 Nov', topic: 'Upgrade a Spring Boot Application to a New Major Version', lead: 'Shubhaja Menon' },
+    { day: '09 Nov to 10 Nov', topic: 'Build an Onboarding Tracker REST API with Spring Boot', lead: 'Shubhaja Menon' },
+    { day: '06 Nov', topic: 'writing meaningful unit tests and measuring code coverage', lead: 'James Wright' },
+    { day: '05 Nov', topic: 'Setup of development environment', lead: 'James Wright' },
   ],
   nextWeekTitle: "Next week's plan",
-  nextWeek: ['17 Nov to 19 NovUpgrade a Container Base Image for a Java Application'],
+  nextWeek: ['17 Nov to 19 Nov · Upgrade a Container Base Image for a Java Application'],
   kudos: { text: "Kudos to this week's workshop co-ordinators — ", names: 'Shubhaja Menon, James Wright, Gibbs Gilbert & Aparna Mohanty' },
 };
 
@@ -373,7 +373,7 @@ function renderBoard(list) {
   if (!list.length) {
     $('bsub').textContent = todayText;
     const e = el('div', 'empty');
-    e.append(el('b', '', 'No participants yet'), el('span', '', 'The board fills in once scores are added to participants.csv.'));
+    e.append(el('b', '', 'No participants yet'), el('span', '', 'People appear here once they open a pull request on an exercise.'));
     box.append(e); return;
   }
   const q = query.trim().toLowerCase();
