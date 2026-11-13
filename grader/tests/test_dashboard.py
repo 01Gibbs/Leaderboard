@@ -10,8 +10,8 @@ PAGE = (REPO / 'index.html').read_text()
 
 class WorkshopTests(unittest.TestCase):
     def test_the_page_shows_each_workshop_by_day_topic_and_lead(self):
-        self.assertIn("w.day", PAGE)
-        self.assertIn("w.topic", PAGE)
+        for field in ('day', 'topic', 'lead'):
+            self.assertIn(f'w.{field}', PAGE)
 
     def test_every_workshop_in_dashboard_json_has_a_day_and_a_topic(self):
         workshops = json.loads((REPO / 'dashboard.json').read_text())['workshops']
@@ -25,7 +25,8 @@ class WorkshopTests(unittest.TestCase):
         entries = re.findall(r'\{[^}]*\}', block)
         self.assertTrue(entries)
         for e in entries:
-            self.assertRegex(e, r"^\{ day: '[^']+', topic: ", e)
+            self.assertRegex(e, r"\bday: '[^']+'", e)
+            self.assertNotRegex(e, r'\bWorkshop\d', e)
 
 
 if __name__ == '__main__':
