@@ -1,2 +1,3 @@
 grader/.cache/
 __pycache__/
+.claude/worktrees/
