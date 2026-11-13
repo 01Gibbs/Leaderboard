@@ -5,164 +5,256 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Java Exercise Leaderboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: one ranked list. Summary and rubric above it, auto-generated recognition below it. */
+/* Layout: header card, then two columns on wide screens. Left: stats, how points work, recognition.
+   Right: the ranked board on a dark panel. On phones the order is stats, board, points, recognition. */
 :root {
-  color-scheme: light dark;
-  --bg: #f5f6f3;
-  --surface: #ffffff;
-  --fg: #1a2420;
-  --muted: #5b6862;
-  --line: #dde2dc;
-  --accent: #3a4bc0;
-  --accent-soft: #e8ebfb;
-  --ok: #1b7448;
-  --ok-bg: #e0f3e8;
-  --part: #8a5608;
-  --part-bg: #fbeed3;
-  --none: #8b958f;
-  --danger: #b3261e;
-  --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
-  --body: "Inter", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+  --bg: #eef0f4; --panel: #ffffff; --panel-2: #f7f8fb; --ink: #14161c; --ink-2: #4b5262;
+  --ink-3: #6f7789; --line: #e4e7ee; --line-2: #eef1f6;
+  --brand: #5b3df5; --brand-soft: #efeafe; --accent: #ff8a3d;
+  --gold: #f5b61a; --silver: #b8c0ce; --bronze: #d08a52;
+  --ok: #15803d; --ok-bg: #dcf3e5; --part: #8a5608; --part-bg: #fbeed3; --danger: #b3261e;
+  --shadow: 0 1px 2px rgba(20,22,28,.05), 0 8px 24px -12px rgba(20,22,28,.14);
+  --board: linear-gradient(160deg, #241a4d 0%, #1a1436 60%, #120e26 100%);
+  --board-ink: #ffffff; --board-ink-2: #b4abe0; --board-row: rgba(255,255,255,.055);
+  --board-row-line: rgba(255,255,255,.08);
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111715; --surface: #19211e; --fg: #e5ebe7; --muted: #94a29a; --line: #29332e;
-    --accent: #99a6ff; --accent-soft: #232a52;
-    --ok: #62d59d; --ok-bg: #15321f; --part: #e8b659; --part-bg: #33270f;
-    --none: #77837c; --danger: #ff8a80;
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0c0e14; --panel: #14171f; --panel-2: #1a1e28; --ink: #f2f4f8; --ink-2: #aab2c3;
+  --ink-3: #8993a8; --line: #242935; --line-2: #1e2330;
+  --brand: #8b76ff; --brand-soft: #221c44; --accent: #ff9a54;
+  --ok: #62d59d; --ok-bg: #15321f; --part: #e8b659; --part-bg: #33270f; --danger: #ff8a80;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.6);
+  --board: linear-gradient(160deg, #2a2060 0%, #1b1540 60%, #0f0b24 100%);
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { background: var(--bg); }
 body {
-  margin: 0; background: var(--bg); color: var(--fg);
-  font-family: var(--body); font-size: 15px; line-height: 1.5;
-  padding-block: 28px 48px;
+  margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 15px; line-height: 1.45;
+  padding-block: 28px 40px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
+  transition: background .25s ease, color .25s ease;
 }
-.wrap { max-width: 1060px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
-h1, h2 { font-family: var(--display); margin: 0; text-wrap: balance; }
-h1 { font-size: clamp(26px, 4vw, 36px); line-height: 1.1; letter-spacing: -0.01em; }
-h2 { font-size: 18px; }
-.sub { color: var(--muted); margin: 6px 0 0; max-width: 62ch; }
-.top { display: flex; flex-wrap: wrap; gap: 18px 40px; align-items: flex-end; justify-content: space-between; }
-.stats { display: flex; gap: 28px; flex-wrap: wrap; }
-.stat b { display: block; font-family: var(--display); font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
-.stat span { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.stat.ok b { color: var(--ok); }
+h1, h2, h3, p { margin: 0; }
+.wrap { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-.rubric { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); border-block: 1px solid var(--line); padding-block: 10px; }
-.rubric b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* header */
+.head { display: flex; align-items: center; justify-content: space-between; gap: 16px 20px; flex-wrap: wrap; padding: 20px 24px; }
+.brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.logo { flex: none; width: 48px; height: 48px; border-radius: 13px; background: var(--brand); display: grid; place-items: center; box-shadow: 0 6px 18px -6px var(--brand); }
+.head h1 { font-family: var(--display); font-weight: 700; font-size: clamp(21px, 3.2vw, 25px); letter-spacing: -.02em; line-height: 1.1; text-wrap: balance; }
+.head .sub { margin-top: 4px; color: var(--ink-2); font-size: 13.5px; max-width: 60ch; }
+.meta { display: flex; align-items: center; gap: 14px; }
+.meta .when { text-align: right; }
+.meta .date { font-family: var(--mono); font-weight: 600; font-size: 14px; }
+.meta .upd { font-size: 12px; color: var(--ink-3); }
+.theme { flex: none; width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); cursor: pointer; display: grid; place-items: center; font-size: 17px; }
+.theme:hover { background: var(--brand-soft); }
 
-.bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.bar input[type=search] { flex: 1 1 200px; min-width: 0; }
-input, textarea, select, button { font: inherit; color: var(--fg); }
-input[type=search] { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
-button { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
-button:hover { border-color: var(--accent); }
-button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* messages */
+.note { font-size: 13px; color: var(--ink-2); padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.note.err { color: var(--danger); border-color: var(--danger); }
+.picker { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13.5px; }
 
-.board { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.row {
-  display: grid; align-items: center; gap: 8px 12px; padding: 12px 16px; border-top: 1px solid var(--line);
-  grid-template-columns: 2.6rem minmax(9rem, 1.7fr) repeat(3, minmax(6.4rem, 1fr)) 4rem 4rem 4.6rem;
+/* grid */
+.grid {
+  display: grid; gap: 20px; align-items: start;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  grid-template-areas: "stats board" "rules board" "reco board";
 }
-.row.head { border-top: 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); background: var(--bg); padding-block: 9px; }
-.row.full { box-shadow: inset 4px 0 0 var(--ok); }
-.rank { font-family: var(--display); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; color: var(--muted); }
-.rank.top3 { color: var(--accent); }
-.name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-.name small { display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--ok); background: var(--ok-bg); border-radius: 999px; padding: 1px 8px; vertical-align: 2px; }
-.num { font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); }
-.pts { font-family: var(--display); font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; text-align: right; }
-.chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 2px 10px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
-.chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.chip.correct { background: var(--ok-bg); color: var(--ok); }
-.chip.submitted { background: var(--part-bg); color: var(--part); }
-.chip.submitted::before { background: transparent; box-shadow: inset 0 0 0 2px currentColor; }
-.chip.none { color: var(--none); font-weight: 500; }
-.chip.none::before { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; opacity: .6; }
-.cell::before { content: attr(data-label); display: none; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 2px; }
+.stats { grid-area: stats; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.board { grid-area: board; }
+.rules { grid-area: rules; }
+.reco { grid-area: reco; }
 
-.empty { padding: 36px 20px; text-align: center; color: var(--muted); }
-.empty b { display: block; color: var(--fg); font-family: var(--display); font-size: 18px; margin-bottom: 4px; }
+.stat { padding: 18px 18px 16px; border-radius: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.stat .top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.stat .ic { width: 34px; height: 34px; border-radius: 10px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; flex: none; }
+.stat .delta { font-size: 11px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); padding: 3px 8px; border-radius: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .val { font-family: var(--display); font-weight: 700; font-size: 34px; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.stat .lbl { font-size: 12.5px; color: var(--ink-2); font-weight: 500; }
 
-.reco { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
-.reco section { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
-.reco h3 { margin: 0 0 6px; font-family: var(--display); font-size: 15px; }
-.reco p { margin: 0 0 8px; font-size: 12.5px; color: var(--muted); }
-.reco ul { margin: 0; padding-left: 18px; }
-.reco li { overflow-wrap: anywhere; }
-.note { font-size: 13px; color: var(--muted); }
-.note.err { color: var(--danger); }
-.foot { font-size: 12.5px; color: var(--muted); }
+section.pane { padding: 20px 22px; }
+.ttl { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+.ttl i { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+.ttl.alt i { background: var(--accent); }
+.ttl h2 { font-family: var(--display); font-weight: 600; font-size: 16px; }
+.pt { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-top: 1px solid var(--line-2); }
+.pt .v { flex: none; width: 52px; font-family: var(--mono); font-weight: 600; font-size: 13px; color: var(--brand); }
+.pt .d { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; }
+.pt .t { flex: none; font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 7px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap; }
+.rg { margin-top: 2px; }
+.rg + .rg { margin-top: 14px; }
+.rg h3 { font-family: var(--display); font-weight: 600; font-size: 14px; }
+.rg p { font-size: 12.5px; color: var(--ink-3); margin: 2px 0 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 11px; background: var(--panel-2); border: 1px solid var(--line); font-size: 13.5px; font-weight: 500; overflow-wrap: anywhere; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); flex: none; }
 
-@media (max-width: 860px) {
-  .row {
-    grid-template-columns: 2.4rem 1fr 1fr 1fr;
-    grid-template-areas: "rank name name pts" ". t1 t2 t3" ". xs xs xs";
-    padding: 12px;
-  }
-  .row.head { display: none; }
-  .row .rank { grid-area: rank; }
-  .row .name { grid-area: name; }
-  .row .pts { grid-area: pts; }
-  .row .c0 { grid-area: t1; } .row .c1 { grid-area: t2; } .row .c2 { grid-area: t3; }
-  .row .xs { grid-area: xs; display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
-  .row .xs .num { text-align: left; }
-  .cell::before { display: block; }
-  .row > .cell { min-width: 0; }
+/* board */
+.board { background: var(--board); border-radius: 22px; padding: 24px 22px 22px; box-shadow: var(--shadow); color: var(--board-ink); position: relative; overflow: hidden; min-width: 0; }
+.board::before { content: ""; position: absolute; top: -60px; right: -50px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(245,182,26,.22), transparent 70%); pointer-events: none; }
+.board > * { position: relative; }
+.bh { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.bh .t { display: flex; align-items: center; gap: 9px; }
+.bh h2 { font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: -.01em; }
+.bh p { margin-top: 6px; font-size: 12.5px; color: var(--board-ink-2); }
+.bh .tag { flex: none; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--board-ink-2); border: 1px solid var(--board-row-line); padding: 5px 9px; border-radius: 20px; white-space: nowrap; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.tools input { flex: 1 1 150px; min-width: 0; font: inherit; font-size: 13.5px; color: var(--board-ink); background: var(--board-row); border: 1px solid var(--board-row-line); border-radius: 10px; padding: 8px 11px; }
+.tools input::placeholder { color: var(--board-ink-2); }
+.tools button { font: inherit; font-size: 12.5px; font-weight: 500; color: var(--board-ink); background: var(--board-row); border: 1px solid var(--board-row-line); border-radius: 10px; padding: 8px 12px; cursor: pointer; }
+.tools button:hover { border-color: var(--board-ink-2); }
+.tools button[aria-pressed="true"] { background: rgba(245,182,26,.18); border-color: rgba(245,182,26,.5); }
+.board :focus-visible { outline-color: var(--gold); }
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.row { display: flex; align-items: center; gap: 13px; padding: 13px 15px; border-radius: 14px; background: var(--board-row); border: 1px solid var(--board-row-line); animation: popIn .4s ease backwards; }
+.row.first { background: rgba(245,182,26,.10); border-color: rgba(245,182,26,.35); }
+.rk { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-family: var(--mono); font-weight: 700; font-size: 14px; background: rgba(255,255,255,.1); color: var(--board-ink); font-variant-numeric: tabular-nums; }
+.rk.r1 { background: var(--gold); color: #1a1436; box-shadow: 0 0 16px -2px var(--gold); }
+.rk.r2 { background: var(--silver); color: #1a1436; }
+.rk.r3 { background: var(--bronze); color: #1a1436; }
+.who { flex: 1; min-width: 0; }
+.nm { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb { font-size: 11.5px; color: var(--board-ink-2); margin-top: 1px; }
+.trk { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.tc { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--board-row-line); color: var(--board-ink-2); }
+.tc::before { content: ""; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid currentColor; }
+.tc.correct { color: #62d59d; background: rgba(98,213,157,.12); border-color: rgba(98,213,157,.3); }
+.tc.correct::before { background: currentColor; }
+.tc.submitted { color: #e8b659; background: rgba(232,182,89,.12); border-color: rgba(232,182,89,.3); }
+.pts { flex: none; text-align: right; }
+.pts b { font-family: var(--display); font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; }
+.pts span { font-size: 11px; color: var(--board-ink-2); margin-left: 3px; }
+.more { margin-top: 12px; width: 100%; font: inherit; font-size: 13px; font-weight: 500; color: var(--board-ink); background: transparent; border: 1px dashed var(--board-row-line); border-radius: 12px; padding: 10px; cursor: pointer; }
+.more:hover { border-color: var(--board-ink-2); }
+.empty { padding: 30px 12px; text-align: center; color: var(--board-ink-2); font-size: 14px; }
+.empty b { display: block; color: var(--board-ink); font-family: var(--display); font-size: 17px; margin-bottom: 4px; }
+
+.kudos { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 15px 20px; border-radius: 16px; text-align: center; font-size: 13.5px; color: var(--ink-2); font-weight: 500; }
+.kudos strong { color: var(--ink); }
+
+@keyframes popIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .row { animation: none; } body { transition: none; } }
+
+@media (max-width: 980px) {
+  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "stats" "board" "rules" "reco"; }
 }
-@media (min-width: 861px) { .row .xs { display: contents; } .lbl { display: none; } }
-@media (prefers-reduced-motion: no-preference) { .row, button { transition: background .15s, border-color .15s; } }
+@media (max-width: 560px) {
+  .head { padding: 16px; }
+  .stats { gap: 10px; }
+  .stat { padding: 14px 12px; }
+  .stat .val { font-size: 28px; }
+  .stat .delta { display: none; }
+  section.pane, .board { padding-inline: 16px; }
+  .row { padding: 12px; gap: 10px; }
+}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header class="top">
-    <div>
-      <h1>Java Exercise Leaderboard</h1>
-      <p class="sub">Effort and correct solutions across the FizzBuzz, REST API and framework upgrade exercises.</p>
+
+  <header class="card head">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 15.5c-3.5-1.5-4-5-4-8.5h15c0 3.5-.5 7-4 8.5"/><path d="M6.5 4.5c-2 0-3 1-3 2.5s1 2.5 3 2.5"/><path d="M17.5 4.5c2 0 3 1 3 2.5s-1 2.5-3 2.5"/><path d="M12 15.5v3"/><path d="M8.5 21h7M9 18.5h6"/></svg>
+      </div>
+      <div style="min-width:0">
+        <h1>Java Exercise Leaderboard</h1>
+        <p class="sub">Effort and correct solutions across the FizzBuzz, REST API and framework upgrade exercises.</p>
+      </div>
     </div>
-    <div class="stats" aria-label="Summary">
-      <div class="stat"><b id="sPeople">0</b><span>Participants</span></div>
-      <div class="stat"><b id="sSub">0</b><span>Submissions</span></div>
-      <div class="stat ok"><b id="sOk">0</b><span>Correct solutions</span></div>
+    <div class="meta">
+      <div class="when">
+        <div class="date" id="today"></div>
+        <div class="upd" id="updated" hidden></div>
+      </div>
+      <button class="theme" id="theme" aria-label="Switch between light and dark theme"></button>
     </div>
   </header>
 
-  <div class="rubric" aria-label="How points work">
-    <span>Submitted <b>10</b></span>
-    <span>Correct solution <b>30</b></span>
-    <span>Each stretch task <b>+5</b></span>
-    <span>First three PR authors per exercise <b>+5 stretch</b></span>
-    <span>Each time helping a colleague <b>+5</b></span>
-  </div>
-
-  <div class="bar">
-    <input type="search" id="q" placeholder="Find a participant" aria-label="Find a participant">
-    <button id="onlyOk" aria-pressed="false">Correct solutions only</button>
-    <button id="copy">Copy as text</button>
-  </div>
-
   <div id="msg" class="note" role="status" hidden></div>
-  <div id="picker" class="bar" hidden>
+  <div id="picker" class="note picker" hidden>
     <label for="csvFile">Choose participants.csv:</label>
     <input type="file" id="csvFile" accept=".csv,text/csv">
   </div>
-  <div class="board" id="board" aria-label="Leaderboard"></div>
 
-  <section id="recoWrap" hidden>
-    <h2 style="margin-bottom:12px">Recognition</h2>
-    <div class="reco" id="reco"></div>
-  </section>
+  <div class="grid">
+    <div class="stats" aria-label="Summary">
+      <div class="card stat">
+        <div class="top">
+          <span class="ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.8c1.8.6 3 2.2 3 5.2"/></svg></span>
+          <span class="delta" id="dP"></span>
+        </div>
+        <div class="val" id="sPeople">0</div>
+        <div class="lbl">Participants</div>
+      </div>
+      <div class="card stat">
+        <div class="top">
+          <span class="ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13h4l1.5 3h5L16 13h4"/><path d="M5.5 5h13L21 13v6H3v-6l2.5-8Z"/></svg></span>
+          <span class="delta" id="dS"></span>
+        </div>
+        <div class="val" id="sSub">0</div>
+        <div class="lbl">Submissions</div>
+      </div>
+      <div class="card stat">
+        <div class="top">
+          <span class="ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
+          <span class="delta" id="dOk"></span>
+        </div>
+        <div class="val" id="sOk">0</div>
+        <div class="lbl">Correct solutions</div>
+      </div>
+    </div>
 
-  <p class="foot" id="updated" hidden></p>
+    <aside class="board" aria-label="Leaderboard">
+      <div class="bh">
+        <div>
+          <div class="t">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v3a6 6 0 0 1-6 6 6 6 0 0 1-6-6V4Z"/><path d="M6 5H4v1a3 3 0 0 0 3 3"/><path d="M18 5h2v1a3 3 0 0 1-3 3"/><path d="M12 13v4"/><path d="M8.5 21h7l-.6-3.2a1 1 0 0 0-1-.8H10a1 1 0 0 0-1 .8L8.5 21Z"/></svg>
+            <h2>Leaderboard</h2>
+          </div>
+          <p id="bsub">Loading…</p>
+        </div>
+        <span class="tag" id="btag">Ranked by points</span>
+      </div>
+      <div class="tools">
+        <input type="search" id="q" placeholder="Find a participant" aria-label="Find a participant">
+        <button id="onlyOk" aria-pressed="false">Correct only</button>
+        <button id="copy">Copy as text</button>
+      </div>
+      <div id="listbox"></div>
+    </aside>
+
+    <section class="card pane rules" aria-label="How points work">
+      <div class="ttl"><i></i><h2>How points work</h2></div>
+      <div>
+        <div class="pt"><span class="v">+10</span><span class="d">Submitted a solution</span><span class="t">per exercise</span></div>
+        <div class="pt"><span class="v">+30</span><span class="d">Correct solution (replaces the submitted points)</span><span class="t">per exercise</span></div>
+        <div class="pt"><span class="v">+5</span><span class="d">Each stretch credit, including being one of the first three PR authors</span><span class="t">per credit</span></div>
+        <div class="pt"><span class="v">+5</span><span class="d">Helping a colleague</span><span class="t">each time</span></div>
+      </div>
+    </section>
+
+    <section class="card pane reco" id="recoWrap" aria-label="Recognition" hidden>
+      <div class="ttl alt"><i></i><h2>Recognition</h2></div>
+      <div id="reco"></div>
+    </section>
+  </div>
+
+  <footer class="card kudos" id="kudos" hidden></footer>
   <noscript><p class="note err">This leaderboard needs JavaScript to load the scores.</p></noscript>
 </div>
 
@@ -170,14 +262,15 @@ button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(
 // Scores live in participants.csv next to this page. Edit that file and commit; no code changes needed.
 const DATA_FILE = 'participants.csv';
 const TRACKS = [
-  { k: 'fizzbuzz', label: 'FizzBuzz' },
-  { k: 'rest_api', label: 'REST API' },
-  { k: 'framework_upgrade', label: 'Framework upgrade' },
+  { k: 'fizzbuzz', label: 'FizzBuzz', short: 'FizzBuzz' },
+  { k: 'rest_api', label: 'REST API', short: 'REST API' },
+  { k: 'framework_upgrade', label: 'Framework upgrade', short: 'Upgrade' },
 ];
 const STATUS = { none: 'Not submitted', submitted: 'Submitted', correct: 'Correct' };
 const PTS = { none: 0, submitted: 10, correct: 30, stretch: 5, helped: 5 };
+const TOP_N = 10;
 
-let rows = [], loaded = false, query = '', onlyOk = false, skipped = 0;
+let rows = [], loaded = false, query = '', onlyOk = false, showAll = false, skipped = 0;
 const $ = (id) => document.getElementById(id);
 
 function el(tag, cls, text) {
@@ -192,9 +285,26 @@ function say(text, isErr) {
   m.textContent = text; m.className = 'note' + (isErr ? ' err' : ''); m.hidden = false;
 }
 
+/* ---- theme: remembered choice, else the device setting ---- */
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  $('theme').textContent = t === 'dark' ? '☀️' : '🌙';
+}
+(function initTheme() {
+  let t = null;
+  try { t = localStorage.getItem('lb-theme'); } catch (e) {}
+  if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  applyTheme(t);
+  $('theme').addEventListener('click', () => {
+    const n = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    applyTheme(n);
+    try { localStorage.setItem('lb-theme', n); } catch (e) {}
+  });
+})();
+
 /* ---- CSV parsing (quotes, commas inside quotes, CRLF, BOM) ---- */
 function parseCSV(text) {
-  text = text.replace(/^﻿/, '');
+  text = text.replace(/^\uFEFF/, '');
   // Excel in some regions saves CSV with ";" or tabs, so use whichever the header row uses most.
   const first = text.split(/\r?\n/)[0] || '';
   const n = (ch) => first.split(ch).length - 1;
@@ -279,56 +389,69 @@ function ranked() {
 }
 
 /* ---- rendering ---- */
-function render() {
-  const list = ranked();
-  $('sPeople').textContent = list.length;
-  $('sSub').textContent = list.reduce((a, r) => a + TRACKS.filter((t) => trackOf(r.p, t.k) !== 'none').length, 0);
-  $('sOk').textContent = list.reduce((a, r) => a + countState(r.p, 'correct'), 0);
+function pct(a, b) { return b ? Math.round((a / b) * 100) + '%' : '0%'; }
 
-  const board = $('board'); board.replaceChildren();
-  if (!loaded) { board.append(el('div', 'empty', 'Loading the leaderboard…')); return; }
+function renderStats(list) {
+  const people = list.length;
+  const subs = list.reduce((a, r) => a + TRACKS.filter((t) => trackOf(r.p, t.k) !== 'none').length, 0);
+  const oks = list.reduce((a, r) => a + countState(r.p, 'correct'), 0);
+  const finished = list.filter((r) => countState(r.p, 'correct') === TRACKS.length).length;
+  $('sPeople').textContent = people;
+  $('sSub').textContent = subs;
+  $('sOk').textContent = oks;
+  $('dP').textContent = people ? finished + ' got all ' + TRACKS.length : '';
+  $('dS').textContent = people ? pct(subs, people * TRACKS.length) + ' attempted' : '';
+  $('dOk').textContent = subs ? pct(oks, subs) + ' pass' : '';
+  ['dP', 'dS', 'dOk'].forEach((id) => { $(id).hidden = !$(id).textContent; });
+}
+
+function renderBoard(list) {
+  const box = $('listbox'); box.replaceChildren();
+  if (!loaded) { box.append(el('div', 'empty', 'Loading the leaderboard…')); return; }
   if (!list.length) {
     const e = el('div', 'empty');
     e.append(el('b', '', 'No participants yet'), el('span', '', 'The board fills in once scores are added to participants.csv.'));
-    board.append(e); $('recoWrap').hidden = true; return;
+    box.append(e); return;
   }
-
-  const head = el('div', 'row head');
-  head.append(el('div', '', '#'), el('div', '', 'Participant'));
-  TRACKS.forEach((t) => head.append(el('div', '', t.label)));
-  head.append(el('div', 'num', 'Stretch'), el('div', 'num', 'Helped'), el('div', 'num', 'Points'));
-  board.append(head);
-
   const q = query.trim().toLowerCase();
-  let shown = 0;
-  for (const r of list) {
+  const filtered = list.filter((r) => (!q || r.p.name.toLowerCase().includes(q)) && (!onlyOk || countState(r.p, 'correct') > 0));
+  const limited = !q && !onlyOk && !showAll && filtered.length > TOP_N;
+  const shown = limited ? filtered.slice(0, TOP_N) : filtered;
+
+  $('bsub').textContent = limited ? 'Top ' + TOP_N + ' of ' + list.length : (q || onlyOk ? filtered.length + ' of ' + list.length : list.length + ' participants');
+
+  if (!shown.length) { box.append(el('div', 'empty', 'No one matches this filter.')); return; }
+
+  const ol = el('ol', 'list');
+  shown.forEach((r, i) => {
     const p = r.p;
-    if (q && !p.name.toLowerCase().includes(q)) continue;
-    if (onlyOk && countState(p, 'correct') === 0) continue;
-    shown++;
-    const full = countState(p, 'correct') === TRACKS.length;
-    const row = el('div', 'row' + (full ? ' full' : ''));
-    row.append(el('div', 'rank' + (r.rank <= 3 ? ' top3' : ''), String(r.rank)));
-    const nm = el('div', 'name', p.name);
-    if (full) nm.append(el('small', '', 'All correct'));
-    row.append(nm);
-    TRACKS.forEach((t, i) => {
-      const c = el('div', 'cell c' + i); c.dataset.label = t.label;
+    const li = el('li', 'row' + (r.rank === 1 ? ' first' : ''));
+    li.style.animationDelay = Math.min(i, 12) * 0.04 + 's';
+    li.append(el('span', 'rk' + (r.rank <= 3 ? ' r' + r.rank : ''), String(r.rank)));
+    const who = el('div', 'who');
+    who.append(el('div', 'nm', p.name));
+    who.append(el('div', 'sb', countState(p, 'correct') + ' correct · ' + stretchCount(p) + ' stretch · ' + p.helped + ' helped'));
+    const trk = el('div', 'trk');
+    TRACKS.forEach((t) => {
       const st = trackOf(p, t.k);
-      const ch = el('span', 'chip ' + st, st === 'none' ? 'Not yet' : STATUS[st]);
-      ch.setAttribute('aria-label', t.label + ': ' + STATUS[st]);
-      c.append(ch); row.append(c);
+      const c = el('span', 'tc ' + st, t.short);
+      c.title = t.label + ': ' + STATUS[st];
+      c.setAttribute('aria-label', t.label + ': ' + STATUS[st]);
+      trk.append(c);
     });
-    const xs = el('div', 'xs');
-    const sc = el('div', 'num'), hc = el('div', 'num');
-    sc.append(el('span', 'lbl', 'Stretch '), document.createTextNode(String(stretchCount(p))));
-    hc.append(el('span', 'lbl', 'Helped '), document.createTextNode(String(p.helped)));
-    xs.append(sc, hc); row.append(xs);
-    row.append(el('div', 'pts', String(r.pts)));
-    board.append(row);
+    who.append(trk);
+    li.append(who);
+    const pts = el('div', 'pts'); pts.append(el('b', '', String(r.pts)), el('span', '', 'pts'));
+    li.append(pts);
+    ol.append(li);
+  });
+  box.append(ol);
+
+  if (!q && !onlyOk && filtered.length > TOP_N) {
+    const b = el('button', 'more', showAll ? 'Show top ' + TOP_N : 'Show all ' + filtered.length);
+    b.addEventListener('click', () => { showAll = !showAll; render(); });
+    box.append(b);
   }
-  if (!shown) board.append(el('div', 'empty', 'No one matches this filter.'));
-  renderReco(list);
 }
 
 function namesOf(arr) { return arr.map((r) => r.p.name); }
@@ -342,7 +465,7 @@ function renderReco(list) {
     if (ok.length) groups.push(['Correct: ' + t.label, ok.length + ' correct solution' + (ok.length === 1 ? '' : 's') + '.', namesOf(ok)]);
   });
   const maxS = Math.max(0, ...list.map((r) => stretchCount(r.p)));
-  if (maxS > 0) groups.push(['Went beyond the brief', maxS + ' stretch task' + (maxS === 1 ? '' : 's') + ' completed.', namesOf(list.filter((r) => stretchCount(r.p) === maxS))]);
+  if (maxS > 0) groups.push(['Went beyond the brief', maxS + ' stretch credit' + (maxS === 1 ? '' : 's') + '.', namesOf(list.filter((r) => stretchCount(r.p) === maxS))]);
   const maxH = Math.max(0, ...list.map((r) => r.p.helped));
   if (maxH > 0) groups.push(['Helped colleagues most', 'Helped a colleague ' + maxH + ' time' + (maxH === 1 ? '' : 's') + '.', namesOf(list.filter((r) => r.p.helped === maxH))]);
   const tried = list.filter((r) => TRACKS.every((t) => trackOf(r.p, t.k) !== 'none'));
@@ -350,11 +473,40 @@ function renderReco(list) {
 
   $('recoWrap').hidden = groups.length === 0;
   for (const [title, desc, names] of groups) {
-    const s = el('section'); s.append(el('h3', '', title), el('p', '', desc));
-    const ul = el('ul'); names.slice(0, 50).forEach((n) => ul.append(el('li', '', n))); s.append(ul); box.append(s);
+    const g = el('div', 'rg'); g.append(el('h3', '', title), el('p', '', desc));
+    const chips = el('div', 'chips');
+    names.slice(0, 30).forEach((n) => chips.append(el('span', 'pill', n)));
+    if (names.length > 30) chips.append(el('span', 'pill', '+' + (names.length - 30) + ' more'));
+    g.append(chips); box.append(g);
   }
 }
 
+function renderKudos(list) {
+  const k = $('kudos'); k.replaceChildren();
+  if (!loaded || !list.length) { k.hidden = true; return; }
+  const allOk = list.filter((r) => countState(r.p, 'correct') === TRACKS.length).map((r) => r.p.name);
+  k.append(el('span', '', '🙌'));
+  const s = el('span');
+  if (allOk.length) {
+    const shown = allOk.slice(0, 5);
+    const more = allOk.length - shown.length;
+    const text = shown.length > 1 ? shown.slice(0, -1).join(', ') + ' & ' + shown[shown.length - 1] : shown[0];
+    s.append(document.createTextNode('Kudos to everyone who nailed all three exercises: '), el('strong', '', text + (more > 0 ? ' and ' + more + ' more' : '')));
+  } else {
+    s.textContent = 'No one has all three correct yet. Be the first.';
+  }
+  k.append(s); k.hidden = false;
+}
+
+function render() {
+  const list = ranked();
+  renderStats(list);
+  renderBoard(list);
+  renderReco(list);
+  renderKudos(list);
+}
+
+$('today').textContent = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 $('q').addEventListener('input', (e) => { query = e.target.value; render(); });
 $('onlyOk').addEventListener('click', (e) => { onlyOk = !onlyOk; e.currentTarget.setAttribute('aria-pressed', String(onlyOk)); render(); });
 $('copy').addEventListener('click', async () => {
@@ -372,7 +524,7 @@ $('copy').addEventListener('click', async () => {
     rows = toParticipants(parseCSV(await res.text()));
     const lm = res.headers.get('last-modified');
     if (lm && !isNaN(Date.parse(lm))) {
-      const u = $('updated'); u.textContent = 'Scores last updated ' + new Date(lm).toLocaleString(); u.hidden = false;
+      const u = $('updated'); u.textContent = 'Scores updated ' + new Date(lm).toLocaleString(); u.hidden = false;
     }
     if (skipped) say(skipped + ' row' + (skipped === 1 ? '' : 's') + ' in participants.csv had no name and were skipped.', true);
   } catch (e) {
