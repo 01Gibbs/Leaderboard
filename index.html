@@ -8,117 +8,108 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: header card, then two columns on wide screens. Left: stats, how points work, recognition.
-   Right: the ranked board on a dark panel. On phones the order is stats, board, points, recognition. */
+/* Layout follows the dashboard design: header card, then a two-column grid.
+   Left: stat cards, workshops, next week's plan. Right: the purple leaderboard panel. Kudos bar at the bottom. */
 :root {
-  color-scheme: light;
-  --bg: #eef0f4; --panel: #ffffff; --panel-2: #f7f8fb; --ink: #14161c; --ink-2: #4b5262;
-  --ink-3: #6f7789; --line: #e4e7ee; --line-2: #eef1f6;
-  --brand: #5b3df5; --brand-soft: #efeafe; --accent: #ff8a3d;
-  --gold: #f5b61a; --silver: #b8c0ce; --bronze: #d08a52;
-  --ok: #15803d; --ok-bg: #dcf3e5; --part: #8a5608; --part-bg: #fbeed3; --danger: #b3261e;
-  --shadow: 0 1px 2px rgba(20,22,28,.05), 0 8px 24px -12px rgba(20,22,28,.14);
-  --board: linear-gradient(160deg, #241a4d 0%, #1a1436 60%, #120e26 100%);
-  --board-ink: #ffffff; --board-ink-2: #b4abe0; --board-row: rgba(255,255,255,.055);
-  --board-row-line: rgba(255,255,255,.08);
-  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --bg:#eef0f4; --panel:#ffffff; --panel-2:#f7f8fb; --ink:#14161c; --ink-2:#4b5262;
+  --ink-3:#8a92a6; --line:#e4e7ee; --line-2:#eef1f6;
+  --brand:#5b3df5; --brand-soft:#efeafe; --accent:#ff8a3d;
+  --gold:#f5b61a; --silver:#b8c0ce; --bronze:#d08a52;
+  --ok:#62d59d; --part:#e8b659; --danger:#b3261e;
+  --shadow:0 1px 2px rgba(20,22,28,.05),0 8px 24px -12px rgba(20,22,28,.14);
+  --board:linear-gradient(160deg,#241a4d 0%,#1a1436 60%,#120e26 100%);
+  --board-ink:#ffffff; --board-ink-2:#b4abe0; --board-row:rgba(255,255,255,.055);
+  --board-row-line:rgba(255,255,255,.08);
+  --display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
 }
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #0c0e14; --panel: #14171f; --panel-2: #1a1e28; --ink: #f2f4f8; --ink-2: #aab2c3;
-  --ink-3: #8993a8; --line: #242935; --line-2: #1e2330;
-  --brand: #8b76ff; --brand-soft: #221c44; --accent: #ff9a54;
-  --ok: #62d59d; --ok-bg: #15321f; --part: #e8b659; --part-bg: #33270f; --danger: #ff8a80;
-  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.6);
-  --board: linear-gradient(160deg, #2a2060 0%, #1b1540 60%, #0f0b24 100%);
+[data-theme="dark"] {
+  --bg:#0c0e14; --panel:#14171f; --panel-2:#1a1e28; --ink:#f2f4f8; --ink-2:#aab2c3;
+  --ink-3:#6b7488; --line:#242935; --line-2:#1e2330;
+  --brand:#8b76ff; --brand-soft:#221c44; --accent:#ff9a54;
+  --gold:#f5b61a; --silver:#c4ccd8; --bronze:#d08a52; --danger:#ff8a80;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+  --board:linear-gradient(160deg,#2a2060 0%,#1b1540 60%,#0f0b24 100%);
+  --board-ink:#ffffff; --board-ink-2:#b4abe0; --board-row:rgba(255,255,255,.05);
+  --board-row-line:rgba(255,255,255,.08);
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { background: var(--bg); }
-body {
-  margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
-  font-family: var(--body); font-size: 15px; line-height: 1.45;
-  padding-block: 28px 40px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
+body { margin: 0; }
+.page {
+  min-height: 100vh; background: var(--bg); color: var(--ink); font-family: var(--body);
+  padding: 28px 24px 40px;
+  padding-left: max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
   transition: background .25s ease, color .25s ease;
 }
-h1, h2, h3, p { margin: 0; }
+h1, h2, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .wrap { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
-:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-/* header */
-.head { display: flex; align-items: center; justify-content: space-between; gap: 16px 20px; flex-wrap: wrap; padding: 20px 24px; }
+/* Header */
+.head { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 20px 24px; }
 .brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
 .logo { flex: none; width: 48px; height: 48px; border-radius: 13px; background: var(--brand); display: grid; place-items: center; box-shadow: 0 6px 18px -6px var(--brand); }
-.head h1 { font-family: var(--display); font-weight: 700; font-size: clamp(21px, 3.2vw, 25px); letter-spacing: -.02em; line-height: 1.1; text-wrap: balance; }
-.head .sub { margin-top: 4px; color: var(--ink-2); font-size: 13.5px; max-width: 60ch; }
+.head h1 { font-family: var(--display); font-weight: 700; font-size: 25px; letter-spacing: -.02em; line-height: 1.1; }
+.head .sub { margin-top: 4px; color: var(--ink-2); font-size: 13.5px; }
 .meta { display: flex; align-items: center; gap: 14px; }
-.meta .when { text-align: right; }
-.meta .date { font-family: var(--mono); font-weight: 600; font-size: 14px; }
-.meta .upd { font-size: 12px; color: var(--ink-3); }
-.theme { flex: none; width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); cursor: pointer; display: grid; place-items: center; font-size: 17px; }
+.when { text-align: right; }
+.date { font-family: var(--mono); font-weight: 600; font-size: 14px; }
+.week { font-size: 12px; color: var(--ink-3); }
+.theme { flex: none; width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); cursor: pointer; display: grid; place-items: center; }
 .theme:hover { background: var(--brand-soft); }
+.theme span { font-size: 17px; }
 
-/* messages */
+/* Messages from the data loader */
 .note { font-size: 13px; color: var(--ink-2); padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
 .note.err { color: var(--danger); border-color: var(--danger); }
-.picker { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13.5px; }
+.picker { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
-/* grid */
+/* Grid */
 .grid {
   display: grid; gap: 20px; align-items: start;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
-  grid-template-areas: "stats board" "rules board" "reco board";
+  grid-template-areas: "stats board" "work board" "next board";
 }
 .stats { grid-area: stats; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.work { grid-area: work; }
+.next { grid-area: next; }
 .board { grid-area: board; }
-.rules { grid-area: rules; }
-.reco { grid-area: reco; }
 
-.stat { padding: 18px 18px 16px; border-radius: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.stat { border-radius: 16px; padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .stat .top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.stat .ic { width: 34px; height: 34px; border-radius: 10px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; flex: none; }
-.stat .delta { font-size: 11px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); padding: 3px 8px; border-radius: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .ic { width: 34px; height: 34px; border-radius: 10px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; font-size: 16px; font-weight: 700; flex: none; }
+.stat .delta { font-size: 11px; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); padding: 3px 7px; border-radius: 20px; white-space: nowrap; }
 .stat .val { font-family: var(--display); font-weight: 700; font-size: 34px; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .stat .lbl { font-size: 12.5px; color: var(--ink-2); font-weight: 500; }
 
-section.pane { padding: 20px 22px; }
-.ttl { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+.pane { padding: 20px 22px; }
+.ttl { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; }
 .ttl i { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
 .ttl.alt i { background: var(--accent); }
 .ttl h2 { font-family: var(--display); font-weight: 600; font-size: 16px; }
-.pt { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-top: 1px solid var(--line-2); }
-.pt .v { flex: none; width: 52px; font-family: var(--mono); font-weight: 600; font-size: 13px; color: var(--brand); }
-.pt .d { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; }
-.pt .t { flex: none; font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 7px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap; }
-.rg { margin-top: 2px; }
-.rg + .rg { margin-top: 14px; }
-.rg h3 { font-family: var(--display); font-weight: 600; font-size: 14px; }
-.rg p { font-size: 12.5px; color: var(--ink-3); margin: 2px 0 8px; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.pill { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 11px; background: var(--panel-2); border: 1px solid var(--line); font-size: 13.5px; font-weight: 500; overflow-wrap: anywhere; }
-.pill::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); flex: none; }
+.ws { display: flex; flex-direction: column; gap: 2px; }
+.w { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-top: 1px solid var(--line-2); }
+.w .d { flex: none; font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--ink-3); width: 44px; }
+.w .t { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; }
+.w .l { flex: none; font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 7px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-2); }
+.np { display: flex; flex-wrap: wrap; gap: 10px; }
+.np div { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border-radius: 11px; background: var(--panel-2); border: 1px solid var(--line); font-size: 13.5px; font-weight: 500; }
+.np div::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); flex: none; }
 
-/* board */
+/* Leaderboard panel */
 .board { background: var(--board); border-radius: 22px; padding: 24px 22px 22px; box-shadow: var(--shadow); color: var(--board-ink); position: relative; overflow: hidden; min-width: 0; }
 .board::before { content: ""; position: absolute; top: -60px; right: -50px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(245,182,26,.22), transparent 70%); pointer-events: none; }
 .board > * { position: relative; }
-.bh { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.bh { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .bh .t { display: flex; align-items: center; gap: 9px; }
 .bh h2 { font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: -.01em; }
 .bh p { margin-top: 6px; font-size: 12.5px; color: var(--board-ink-2); }
-.bh .tag { flex: none; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--board-ink-2); border: 1px solid var(--board-row-line); padding: 5px 9px; border-radius: 20px; white-space: nowrap; }
-.tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.tools input { flex: 1 1 150px; min-width: 0; font: inherit; font-size: 13.5px; color: var(--board-ink); background: var(--board-row); border: 1px solid var(--board-row-line); border-radius: 10px; padding: 8px 11px; }
-.tools input::placeholder { color: var(--board-ink-2); }
-.tools button { font: inherit; font-size: 12.5px; font-weight: 500; color: var(--board-ink); background: var(--board-row); border: 1px solid var(--board-row-line); border-radius: 10px; padding: 8px 12px; cursor: pointer; }
-.tools button:hover { border-color: var(--board-ink-2); }
-.tools button[aria-pressed="true"] { background: rgba(245,182,26,.18); border-color: rgba(245,182,26,.5); }
-.board :focus-visible { outline-color: var(--gold); }
+.bh .tag { flex: none; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--board-ink-2); border: 1px solid var(--board-row-line); padding: 5px 9px; border-radius: 20px; }
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
 .row { display: flex; align-items: center; gap: 13px; padding: 13px 15px; border-radius: 14px; background: var(--board-row); border: 1px solid var(--board-row-line); animation: popIn .4s ease backwards; }
 .row.first { background: rgba(245,182,26,.10); border-color: rgba(245,182,26,.35); }
@@ -128,42 +119,51 @@ section.pane { padding: 20px 22px; }
 .rk.r3 { background: var(--bronze); color: #1a1436; }
 .who { flex: 1; min-width: 0; }
 .nm { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sb { font-size: 11.5px; color: var(--board-ink-2); margin-top: 1px; }
-.trk { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-.tc { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--board-row-line); color: var(--board-ink-2); }
-.tc::before { content: ""; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid currentColor; }
-.tc.correct { color: #62d59d; background: rgba(98,213,157,.12); border-color: rgba(98,213,157,.3); }
-.tc.correct::before { background: currentColor; }
-.tc.submitted { color: #e8b659; background: rgba(232,182,89,.12); border-color: rgba(232,182,89,.3); }
+.sb { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--board-ink-2); margin-top: 1px; }
+.dots { display: inline-flex; gap: 4px; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--board-ink-2); opacity: .7; }
+.dots i.correct { background: var(--ok); border-color: var(--ok); opacity: 1; }
+.dots i.submitted { border-color: var(--part); opacity: 1; }
 .pts { flex: none; text-align: right; }
 .pts b { font-family: var(--display); font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; }
 .pts span { font-size: 11px; color: var(--board-ink-2); margin-left: 3px; }
+.find { width: 100%; margin-bottom: 12px; font: inherit; font-size: 13.5px; color: var(--board-ink); background: var(--board-row); border: 1px solid var(--board-row-line); border-radius: 10px; padding: 9px 12px; }
+.find::placeholder { color: var(--board-ink-2); }
 .more { margin-top: 12px; width: 100%; font: inherit; font-size: 13px; font-weight: 500; color: var(--board-ink); background: transparent; border: 1px dashed var(--board-row-line); border-radius: 12px; padding: 10px; cursor: pointer; }
-.more:hover { border-color: var(--board-ink-2); }
+.more:hover, .find:hover { border-color: var(--board-ink-2); }
+.board :focus-visible { outline-color: var(--gold); }
+.how { margin-top: 14px; font-size: 11.5px; color: var(--board-ink-2); line-height: 1.5; }
 .empty { padding: 30px 12px; text-align: center; color: var(--board-ink-2); font-size: 14px; }
 .empty b { display: block; color: var(--board-ink); font-family: var(--display); font-size: 17px; margin-bottom: 4px; }
 
-.kudos { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 15px 20px; border-radius: 16px; text-align: center; font-size: 13.5px; color: var(--ink-2); font-weight: 500; }
+/* Footer */
+.kudos { display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 16px; padding: 15px 20px; text-align: center; }
+.kudos span { font-size: 13.5px; color: var(--ink-2); font-weight: 500; }
 .kudos strong { color: var(--ink); }
 
 @keyframes popIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .row { animation: none; } body { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .row { animation: none; } .page { transition: none; } }
 
-@media (max-width: 980px) {
-  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "stats" "board" "rules" "reco"; }
+@media (max-width: 900px) {
+  .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "stats" "board" "work" "next"; }
 }
 @media (max-width: 560px) {
+  .page { padding-block: 16px 28px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .head { padding: 16px; }
+  .head h1 { font-size: 21px; }
+  .when { text-align: left; }
   .stats { gap: 10px; }
   .stat { padding: 14px 12px; }
   .stat .val { font-size: 28px; }
   .stat .delta { display: none; }
-  section.pane, .board { padding-inline: 16px; }
+  .pane, .board { padding-inline: 16px; }
   .row { padding: 12px; gap: 10px; }
+  .w { gap: 10px; }
 }
 </style>
 </head>
 <body>
+<div class="page">
 <div class="wrap">
 
   <header class="card head">
@@ -172,16 +172,16 @@ section.pane { padding: 20px 22px; }
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 15.5c-3.5-1.5-4-5-4-8.5h15c0 3.5-.5 7-4 8.5"/><path d="M6.5 4.5c-2 0-3 1-3 2.5s1 2.5 3 2.5"/><path d="M17.5 4.5c2 0 3 1 3 2.5s-1 2.5-3 2.5"/><path d="M12 15.5v3"/><path d="M8.5 21h7M9 18.5h6"/></svg>
       </div>
       <div style="min-width:0">
-        <h1>Java Exercise Leaderboard</h1>
-        <p class="sub">Effort and correct solutions across the FizzBuzz, REST API and framework upgrade exercises.</p>
+        <h1 id="title">Java Bootcamp · Daily Standup</h1>
+        <p class="sub" id="subtitle">Cohort 14 — Back-End Engineering Track</p>
       </div>
     </div>
     <div class="meta">
       <div class="when">
         <div class="date" id="today"></div>
-        <div class="upd" id="updated" hidden></div>
+        <div class="week" id="week"></div>
       </div>
-      <button class="theme" id="theme" aria-label="Switch between light and dark theme"></button>
+      <button class="theme" id="theme" aria-label="Toggle theme"><span id="themeIcon"></span></button>
     </div>
   </header>
 
@@ -194,30 +194,31 @@ section.pane { padding: 20px 22px; }
   <div class="grid">
     <div class="stats" aria-label="Summary">
       <div class="card stat">
-        <div class="top">
-          <span class="ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.8c1.8.6 3 2.2 3 5.2"/></svg></span>
-          <span class="delta" id="dP"></span>
-        </div>
+        <div class="top"><span class="ic" aria-hidden="true">👥</span><span class="delta" id="dP"></span></div>
         <div class="val" id="sPeople">0</div>
         <div class="lbl">Participants</div>
       </div>
       <div class="card stat">
-        <div class="top">
-          <span class="ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13h4l1.5 3h5L16 13h4"/><path d="M5.5 5h13L21 13v6H3v-6l2.5-8Z"/></svg></span>
-          <span class="delta" id="dS"></span>
-        </div>
+        <div class="top"><span class="ic" aria-hidden="true">📥</span><span class="delta" id="dS"></span></div>
         <div class="val" id="sSub">0</div>
         <div class="lbl">Submissions</div>
       </div>
       <div class="card stat">
-        <div class="top">
-          <span class="ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
-          <span class="delta" id="dOk"></span>
-        </div>
+        <div class="top"><span class="ic" aria-hidden="true">✓</span><span class="delta" id="dOk"></span></div>
         <div class="val" id="sOk">0</div>
-        <div class="lbl">Correct solutions</div>
+        <div class="lbl">Correct Solutions</div>
       </div>
     </div>
+
+    <section class="card pane work" id="workWrap" hidden>
+      <div class="ttl"><i></i><h2 id="workTitle">This week's workshops</h2></div>
+      <div class="ws" id="ws"></div>
+    </section>
+
+    <section class="card pane next" id="nextWrap" hidden>
+      <div class="ttl alt"><i></i><h2 id="nextTitle">Next week's plan</h2></div>
+      <div class="np" id="np"></div>
+    </section>
 
     <aside class="board" aria-label="Leaderboard">
       <div class="bh">
@@ -228,50 +229,55 @@ section.pane { padding: 20px 22px; }
           </div>
           <p id="bsub">Loading…</p>
         </div>
-        <span class="tag" id="btag">Ranked by points</span>
-      </div>
-      <div class="tools">
-        <input type="search" id="q" placeholder="Find a participant" aria-label="Find a participant">
-        <button id="onlyOk" aria-pressed="false">Correct only</button>
-        <button id="copy">Copy as text</button>
+        <span class="tag" id="btag">Overall</span>
       </div>
       <div id="listbox"></div>
+      <p class="how">Submitted 10 · Correct 30 · Stretch +5 (including first three PR authors) · Helped a colleague +5. The dots show FizzBuzz, REST API and Framework upgrade: filled green is correct, amber ring is submitted.</p>
     </aside>
-
-    <section class="card pane rules" aria-label="How points work">
-      <div class="ttl"><i></i><h2>How points work</h2></div>
-      <div>
-        <div class="pt"><span class="v">+10</span><span class="d">Submitted a solution</span><span class="t">per exercise</span></div>
-        <div class="pt"><span class="v">+30</span><span class="d">Correct solution (replaces the submitted points)</span><span class="t">per exercise</span></div>
-        <div class="pt"><span class="v">+5</span><span class="d">Each stretch credit, including being one of the first three PR authors</span><span class="t">per credit</span></div>
-        <div class="pt"><span class="v">+5</span><span class="d">Helping a colleague</span><span class="t">each time</span></div>
-      </div>
-    </section>
-
-    <section class="card pane reco" id="recoWrap" aria-label="Recognition" hidden>
-      <div class="ttl alt"><i></i><h2>Recognition</h2></div>
-      <div id="reco"></div>
-    </section>
   </div>
 
-  <footer class="card kudos" id="kudos" hidden></footer>
+  <footer class="card kudos" id="kudos" hidden>
+    <span style="font-size:15px">🙌</span>
+    <span id="kudosText"></span>
+  </footer>
   <noscript><p class="note err">This leaderboard needs JavaScript to load the scores.</p></noscript>
+</div>
 </div>
 
 <script>
-// Scores live in participants.csv next to this page. Edit that file and commit; no code changes needed.
+// Scores live in participants.csv. The text sections (title, workshops, next week, kudos) live in dashboard.json.
+// Edit those files and commit; no code changes needed.
 const DATA_FILE = 'participants.csv';
+const CONTENT_FILE = 'dashboard.json';
 const TRACKS = [
-  { k: 'fizzbuzz', label: 'FizzBuzz', short: 'FizzBuzz' },
-  { k: 'rest_api', label: 'REST API', short: 'REST API' },
-  { k: 'framework_upgrade', label: 'Framework upgrade', short: 'Upgrade' },
+  { k: 'fizzbuzz', label: 'FizzBuzz' },
+  { k: 'rest_api', label: 'REST API' },
+  { k: 'framework_upgrade', label: 'Framework upgrade' },
 ];
 const STATUS = { none: 'Not submitted', submitted: 'Submitted', correct: 'Correct' };
 const PTS = { none: 0, submitted: 10, correct: 30, stretch: 5, helped: 5 };
-const TOP_N = 10;
+const TOP_N = 5;
 
-let rows = [], loaded = false, query = '', onlyOk = false, showAll = false, skipped = 0;
+// Used when dashboard.json cannot be loaded (for example when the page is opened from disk).
+let content = {
+  title: 'Java Bootcamp · Daily Standup',
+  subtitle: 'Cohort 14 — Back-End Engineering Track',
+  weekLabel: 'Week 4 of 10 · Day 18',
+  leaderboardTag: 'Overall',
+  workshopsTitle: "This week's workshops",
+  workshops: [
+    { day: 'MON', topic: 'Collections & Generics deep-dive', lead: 'Aarti' },
+    { day: 'WED', topic: 'Streams API & functional style', lead: 'Devin' },
+    { day: 'FRI', topic: 'Exception handling & debugging clinic', lead: 'Marcus' },
+  ],
+  nextWeekTitle: "Next week's plan",
+  nextWeek: ['Spring Boot intro', 'Building REST APIs', 'JUnit 5 testing', 'Code review lab'],
+  kudos: { text: "Kudos to this week's workshop co-ordinators — ", names: 'Aarti, Devin & Marcus' },
+};
+
+let rows = [], loaded = false, showAll = false, query = '', skipped = 0;
 const $ = (id) => document.getElementById(id);
+const todayText = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -285,18 +291,18 @@ function say(text, isErr) {
   m.textContent = text; m.className = 'note' + (isErr ? ' err' : ''); m.hidden = false;
 }
 
-/* ---- theme: remembered choice, else the device setting ---- */
+/* ---- theme: dark by default, remembers the visitor's choice ---- */
 function applyTheme(t) {
+  $('themeIcon').parentNode.parentNode.dataset.theme = t;
   document.documentElement.dataset.theme = t;
-  $('theme').textContent = t === 'dark' ? '☀️' : '🌙';
+  $('themeIcon').textContent = t === 'light' ? '🌙' : '☀️';
 }
 (function initTheme() {
-  let t = null;
-  try { t = localStorage.getItem('lb-theme'); } catch (e) {}
-  if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  let t = 'dark';
+  try { const s = localStorage.getItem('lb-theme'); if (s === 'light' || s === 'dark') t = s; } catch (e) {}
   applyTheme(t);
   $('theme').addEventListener('click', () => {
-    const n = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    const n = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
     applyTheme(n);
     try { localStorage.setItem('lb-theme', n); } catch (e) {}
   });
@@ -304,7 +310,7 @@ function applyTheme(t) {
 
 /* ---- CSV parsing (quotes, commas inside quotes, CRLF, BOM) ---- */
 function parseCSV(text) {
-  text = text.replace(/^\uFEFF/, '');
+  text = text.replace(/^﻿/, '');
   // Excel in some regions saves CSV with ";" or tabs, so use whichever the header row uses most.
   const first = text.split(/\r?\n/)[0] || '';
   const n = (ch) => first.split(ch).length - 1;
@@ -391,6 +397,36 @@ function ranked() {
 /* ---- rendering ---- */
 function pct(a, b) { return b ? Math.round((a / b) * 100) + '%' : '0%'; }
 
+function renderContent() {
+  const c = content;
+  $('title').textContent = c.title || '';
+  document.title = c.title || 'Leaderboard';
+  $('subtitle').textContent = c.subtitle || ''; $('subtitle').hidden = !c.subtitle;
+  $('today').textContent = todayText;
+  $('week').textContent = c.weekLabel || ''; $('week').hidden = !c.weekLabel;
+  $('btag').textContent = c.leaderboardTag || ''; $('btag').hidden = !c.leaderboardTag;
+
+  const ws = $('ws'); ws.replaceChildren();
+  (c.workshops || []).forEach((w) => {
+    const r = el('div', 'w');
+    r.append(el('span', 'd', w.day || ''), el('span', 't', w.topic || ''));
+    if (w.lead) r.append(el('span', 'l', w.lead));
+    ws.append(r);
+  });
+  $('workTitle').textContent = c.workshopsTitle || '';
+  $('workWrap').hidden = !(c.workshops && c.workshops.length);
+
+  const np = $('np'); np.replaceChildren();
+  (c.nextWeek || []).forEach((n) => np.append(el('div', '', n)));
+  $('nextTitle').textContent = c.nextWeekTitle || '';
+  $('nextWrap').hidden = !(c.nextWeek && c.nextWeek.length);
+
+  const k = c.kudos;
+  $('kudos').hidden = !(k && (k.text || k.names));
+  const kt = $('kudosText'); kt.replaceChildren();
+  if (k) { kt.append(document.createTextNode(k.text || '')); if (k.names) kt.append(el('strong', '', k.names)); }
+}
+
 function renderStats(list) {
   const people = list.length;
   const subs = list.reduce((a, r) => a + TRACKS.filter((t) => trackOf(r.p, t.k) !== 'none').length, 0);
@@ -407,125 +443,68 @@ function renderStats(list) {
 
 function renderBoard(list) {
   const box = $('listbox'); box.replaceChildren();
-  if (!loaded) { box.append(el('div', 'empty', 'Loading the leaderboard…')); return; }
+  if (!loaded) { $('bsub').textContent = 'Loading…'; box.append(el('div', 'empty', 'Loading the leaderboard…')); return; }
   if (!list.length) {
+    $('bsub').textContent = todayText;
     const e = el('div', 'empty');
     e.append(el('b', '', 'No participants yet'), el('span', '', 'The board fills in once scores are added to participants.csv.'));
     box.append(e); return;
   }
   const q = query.trim().toLowerCase();
-  const filtered = list.filter((r) => (!q || r.p.name.toLowerCase().includes(q)) && (!onlyOk || countState(r.p, 'correct') > 0));
-  const limited = !q && !onlyOk && !showAll && filtered.length > TOP_N;
-  const shown = limited ? filtered.slice(0, TOP_N) : filtered;
+  const filtered = q ? list.filter((r) => r.p.name.toLowerCase().includes(q)) : list;
+  const shown = showAll ? filtered : filtered.slice(0, TOP_N);
+  $('bsub').textContent = (showAll ? 'All ' + list.length : 'Top ' + Math.min(TOP_N, list.length)) + ' · ' + todayText;
 
-  $('bsub').textContent = limited ? 'Top ' + TOP_N + ' of ' + list.length : (q || onlyOk ? filtered.length + ' of ' + list.length : list.length + ' participants');
-
-  if (!shown.length) { box.append(el('div', 'empty', 'No one matches this filter.')); return; }
-
-  const ol = el('ol', 'list');
-  shown.forEach((r, i) => {
-    const p = r.p;
-    const li = el('li', 'row' + (r.rank === 1 ? ' first' : ''));
-    li.style.animationDelay = Math.min(i, 12) * 0.04 + 's';
-    li.append(el('span', 'rk' + (r.rank <= 3 ? ' r' + r.rank : ''), String(r.rank)));
-    const who = el('div', 'who');
-    who.append(el('div', 'nm', p.name));
-    who.append(el('div', 'sb', countState(p, 'correct') + ' correct · ' + stretchCount(p) + ' stretch · ' + p.helped + ' helped'));
-    const trk = el('div', 'trk');
-    TRACKS.forEach((t) => {
-      const st = trackOf(p, t.k);
-      const c = el('span', 'tc ' + st, t.short);
-      c.title = t.label + ': ' + STATUS[st];
-      c.setAttribute('aria-label', t.label + ': ' + STATUS[st]);
-      trk.append(c);
+  if (showAll) {
+    const f = el('input', 'find'); f.type = 'search'; f.id = 'find'; f.placeholder = 'Find a participant'; f.value = query;
+    f.setAttribute('aria-label', 'Find a participant');
+    f.addEventListener('input', (e) => { query = e.target.value; renderBoard(ranked()); const n = $('find'); n.focus(); n.setSelectionRange(query.length, query.length); });
+    box.append(f);
+  }
+  if (!shown.length) { box.append(el('div', 'empty', 'No one matches this search.')); }
+  else {
+    const ol = el('ol', 'list');
+    shown.forEach((r, i) => {
+      const p = r.p;
+      const li = el('li', 'row' + (r.rank === 1 ? ' first' : ''));
+      li.style.animationDelay = Math.min(i, 12) * 0.06 + 's';
+      li.append(el('span', 'rk' + (r.rank <= 3 ? ' r' + r.rank : ''), String(r.rank)));
+      const who = el('div', 'who');
+      who.append(el('div', 'nm', p.name));
+      const sb = el('div', 'sb');
+      sb.append(el('span', '', countState(p, 'correct') + ' solved · ' + stretchCount(p) + ' stretch'));
+      const dots = el('span', 'dots'); dots.setAttribute('role', 'img');
+      dots.setAttribute('aria-label', TRACKS.map((t) => t.label + ': ' + STATUS[trackOf(p, t.k)]).join(', '));
+      TRACKS.forEach((t) => { const d = el('i', trackOf(p, t.k)); d.title = t.label + ': ' + STATUS[trackOf(p, t.k)]; dots.append(d); });
+      sb.append(dots); who.append(sb); li.append(who);
+      const pts = el('div', 'pts'); pts.append(el('b', '', String(r.pts)), el('span', '', 'pts'));
+      li.append(pts); ol.append(li);
     });
-    who.append(trk);
-    li.append(who);
-    const pts = el('div', 'pts'); pts.append(el('b', '', String(r.pts)), el('span', '', 'pts'));
-    li.append(pts);
-    ol.append(li);
-  });
-  box.append(ol);
-
-  if (!q && !onlyOk && filtered.length > TOP_N) {
-    const b = el('button', 'more', showAll ? 'Show top ' + TOP_N : 'Show all ' + filtered.length);
-    b.addEventListener('click', () => { showAll = !showAll; render(); });
+    box.append(ol);
+  }
+  if (list.length > TOP_N) {
+    const b = el('button', 'more', showAll ? 'Show top ' + TOP_N : 'View all ' + list.length);
+    b.addEventListener('click', () => { showAll = !showAll; query = ''; renderBoard(ranked()); });
     box.append(b);
   }
 }
 
-function namesOf(arr) { return arr.map((r) => r.p.name); }
-function renderReco(list) {
-  const box = $('reco'); box.replaceChildren();
-  const groups = [];
-  const allOk = list.filter((r) => countState(r.p, 'correct') === TRACKS.length);
-  if (allOk.length) groups.push(['Correct on every exercise', 'Submitted a correct solution to all three.', namesOf(allOk)]);
-  TRACKS.forEach((t) => {
-    const ok = list.filter((r) => trackOf(r.p, t.k) === 'correct');
-    if (ok.length) groups.push(['Correct: ' + t.label, ok.length + ' correct solution' + (ok.length === 1 ? '' : 's') + '.', namesOf(ok)]);
-  });
-  const maxS = Math.max(0, ...list.map((r) => stretchCount(r.p)));
-  if (maxS > 0) groups.push(['Went beyond the brief', maxS + ' stretch credit' + (maxS === 1 ? '' : 's') + '.', namesOf(list.filter((r) => stretchCount(r.p) === maxS))]);
-  const maxH = Math.max(0, ...list.map((r) => r.p.helped));
-  if (maxH > 0) groups.push(['Helped colleagues most', 'Helped a colleague ' + maxH + ' time' + (maxH === 1 ? '' : 's') + '.', namesOf(list.filter((r) => r.p.helped === maxH))]);
-  const tried = list.filter((r) => TRACKS.every((t) => trackOf(r.p, t.k) !== 'none'));
-  if (tried.length) groups.push(['Attempted every exercise', 'Submitted something for all three.', namesOf(tried)]);
-
-  $('recoWrap').hidden = groups.length === 0;
-  for (const [title, desc, names] of groups) {
-    const g = el('div', 'rg'); g.append(el('h3', '', title), el('p', '', desc));
-    const chips = el('div', 'chips');
-    names.slice(0, 30).forEach((n) => chips.append(el('span', 'pill', n)));
-    if (names.length > 30) chips.append(el('span', 'pill', '+' + (names.length - 30) + ' more'));
-    g.append(chips); box.append(g);
-  }
-}
-
-function renderKudos(list) {
-  const k = $('kudos'); k.replaceChildren();
-  if (!loaded || !list.length) { k.hidden = true; return; }
-  const allOk = list.filter((r) => countState(r.p, 'correct') === TRACKS.length).map((r) => r.p.name);
-  k.append(el('span', '', '🙌'));
-  const s = el('span');
-  if (allOk.length) {
-    const shown = allOk.slice(0, 5);
-    const more = allOk.length - shown.length;
-    const text = shown.length > 1 ? shown.slice(0, -1).join(', ') + ' & ' + shown[shown.length - 1] : shown[0];
-    s.append(document.createTextNode('Kudos to everyone who nailed all three exercises: '), el('strong', '', text + (more > 0 ? ' and ' + more + ' more' : '')));
-  } else {
-    s.textContent = 'No one has all three correct yet. Be the first.';
-  }
-  k.append(s); k.hidden = false;
-}
-
 function render() {
   const list = ranked();
-  renderStats(list);
-  renderBoard(list);
-  renderReco(list);
-  renderKudos(list);
+  renderContent(); renderStats(list); renderBoard(list);
 }
 
-$('today').textContent = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-$('q').addEventListener('input', (e) => { query = e.target.value; render(); });
-$('onlyOk').addEventListener('click', (e) => { onlyOk = !onlyOk; e.currentTarget.setAttribute('aria-pressed', String(onlyOk)); render(); });
-$('copy').addEventListener('click', async () => {
-  const text = ranked().map((r) => r.rank + '. ' + r.p.name + ' - ' + r.pts + ' pts (' +
-    TRACKS.map((t) => t.label + ': ' + STATUS[trackOf(r.p, t.k)]).join(', ') + ')').join('\n');
-  try { await navigator.clipboard.writeText(text); say('Leaderboard copied.'); setTimeout(() => say(''), 2500); }
-  catch (e) { const ta = el('textarea'); ta.value = text; ta.style.width = '100%'; $('msg').after(ta); ta.select(); say('Select the text below and copy it.'); }
-});
-
 (async function start() {
+  render();
+  try {
+    const r = await fetch(CONTENT_FILE, { cache: 'no-cache' });
+    if (r.ok) { content = Object.assign({}, content, await r.json()); }
+  } catch (e) { /* keep the built-in text */ }
   render();
   try {
     const res = await fetch(DATA_FILE, { cache: 'no-cache' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     rows = toParticipants(parseCSV(await res.text()));
-    const lm = res.headers.get('last-modified');
-    if (lm && !isNaN(Date.parse(lm))) {
-      const u = $('updated'); u.textContent = 'Scores updated ' + new Date(lm).toLocaleString(); u.hidden = false;
-    }
     if (skipped) say(skipped + ' row' + (skipped === 1 ? '' : 's') + ' in participants.csv had no name and were skipped.', true);
   } catch (e) {
     say('The scores file could not be loaded automatically (' + e.message + '). This happens when the page is opened straight from disk. Choose participants.csv below to view it, or run start.bat to open it through a local server.', true);
