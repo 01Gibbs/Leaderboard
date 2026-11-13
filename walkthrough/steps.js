@@ -61,7 +61,7 @@ export function steps(ctx) {
       chapter: 'The leaderboard',
       title: 'Totals',
       target: 'stats',
-      text: '<p>People on the board, pull requests submitted, and how many of them are correct.</p>',
+      text: '<p>People on the board, exercises submitted, and how many of them are correct. The small tags give the share: how many got every exercise correct, how many exercises were attempted, and how many submissions pass.</p>',
     },
     {
       chapter: 'The leaderboard',
@@ -73,34 +73,35 @@ export function steps(ctx) {
     },
     {
       chapter: 'The leaderboard',
-      title: 'One column per exercise',
-      target: ['columns', 'first-row'], // the header row is hidden on narrow screens
-      text: `<p>One column per exercise (${ctx.lessons.map((l) => esc(l.label)).join(', ')}), then the points facilitators give, then the total.</p><p>Adding a workshop repo adds a column here by itself.</p>`,
+      title: 'The ranking',
+      target: 'first-row',
+      text: '<p>Everyone, ranked by points. The board shows the top five; people with equal points share a rank.</p><p>New people appear by themselves when they open their first pull request.</p>',
     },
     {
       chapter: 'The leaderboard',
       title: 'Exercise results',
       target: 'first-row-results',
-      text: `<p><b>Not yet</b>: no pull request.<br><b>Submitted</b>: they opened a pull request on the exercise repo.<br><b>Correct</b>: the automatic check passed, or a facilitator marked it.</p>
-        <p>New people appear by themselves when they open their first pull request.</p>`,
+      text: `<p>One dot per exercise, in this order: ${ctx.lessons.map((l) => esc(l.label)).join(', ')}.</p>
+        <p><b>Empty</b>: no pull request yet.<br><b>Amber ring</b>: submitted, they opened a pull request on the exercise repo.<br><b>Filled green</b>: correct, the automatic check passed or a facilitator marked it.</p>
+        <p>Adding a workshop repo adds a dot here by itself. Hover a dot to see which exercise it is.</p>`,
     },
     {
       chapter: 'The leaderboard',
-      title: 'Points from facilitators',
+      title: 'Solved and stretch',
       target: 'first-row-extras',
-      text: '<p>Stretch tasks, help given and bonus points. Facilitators give these with the <b>Award points</b> form (later in this tour).</p><p>Stretch also includes the early pull request credit, which the grader adds by itself.</p>',
+      text: '<p>How many exercises are correct, and how many stretch credits they have. Stretch includes the early pull request credit, which the grader adds by itself.</p><p>Help given and bonus points count towards the total but are not shown separately. Facilitators give all of these with the <b>Award points</b> form (later in this tour).</p>',
     },
     {
       chapter: 'The leaderboard',
-      title: 'Find, filter, share',
+      title: 'Everyone, and search',
       target: 'tools',
-      text: '<p>Search by name, show only people with a correct solution, or copy the whole board as text to paste into a chat.</p>',
+      text: '<p><b>View all</b> shows everyone, with a box to find someone by name.</p>',
     },
     {
       chapter: 'The leaderboard',
-      title: 'Recognition',
-      target: 'recognition',
-      text: '<p>Picked out automatically: correct on every exercise, most stretch tasks, most help given.</p>',
+      title: 'Workshops and kudos',
+      target: 'workshops',
+      text: `<p>The workshops delivered, next week’s plan and the kudos line come from ${fileLink(ctx, 'dashboard.json')}. Edit that file on GitHub and commit; the page updates a minute or two later.</p>`,
     },
 
     // ---------- 2. How it works ----------
@@ -130,6 +131,7 @@ export function steps(ctx) {
         <table>
           <tr><th>${fileLink(ctx, 'participants.csv')}</th><td>Everyone’s scores. The page reads this.</td></tr>
           <tr><th>${fileLink(ctx, 'lessons.json')}</th><td>The exercises: name, repo, and how each is checked.</td></tr>
+          <tr><th>${fileLink(ctx, 'dashboard.json')}</th><td>The page’s title, workshops, next week’s plan and kudos.</td></tr>
           <tr><th>${fileLink(ctx, 'grader/results.json')}</th><td>Why each pull request passed or failed.</td></tr>
           <tr><th>${ctx.recent_actions.length ? fileLink(ctx, 'grader/history.json') : 'grader/history.json'}</th><td>Every facilitator change: who, when, what. Undo uses this. It appears after the first change.</td></tr>
           <tr><th>${fileLink(ctx, 'FACILITATOR.md')}</th><td>One-page guide for facilitators.</td></tr>
