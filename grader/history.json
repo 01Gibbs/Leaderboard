@@ -196,5 +196,38 @@
         }
       }
     ]
+  },
+  {
+    "at": "2026-11-13T14:27:43+00:00",
+    "by": "01Gibbs",
+    "action": "Gave 1 help to Stuart Smith (helped: 0 -> 1)",
+    "changes": [
+      {
+        "before": {
+          "name": "Stuart Smith",
+          "github_username": "StuartJSmith10-dev",
+          "fizzbuzz": "Correct",
+          "rest_api": "none",
+          "framework_upgrade": "none",
+          "stretch": "1",
+          "pr_stretch": "1",
+          "helped": "",
+          "container_image": "",
+          "bonus": ""
+        },
+        "after": {
+          "name": "Stuart Smith",
+          "github_username": "StuartJSmith10-dev",
+          "fizzbuzz": "Correct",
+          "rest_api": "none",
+          "framework_upgrade": "none",
+          "stretch": "1",
+          "pr_stretch": "1",
+          "helped": "1",
+          "container_image": "",
+          "bonus": ""
+        }
+      }
+    ]
   }
 ]
