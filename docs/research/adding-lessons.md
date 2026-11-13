@@ -90,7 +90,7 @@ The problem statement is still the source: Claude drafts the spec from its "What
 
 | Option | Setup once | Per new lesson | Per workshop | Resists cheating | Participant feedback | Security | Fit with the current leaderboard |
 |---|---|---|---|---|---|---|---|
-| **A. Today:** custom Python per lesson | done | 2–4 h | ~0 | High: our tests overwrite theirs, black-box HTTP | Up to 30 min later, in `results.json` (public) | Good: read-only grade job, sandbox user | Native |
+| **A. Today:** custom Python per lesson | done | 2–4 h | ~0 | High: our tests overwrite theirs, black-box HTTP | Up to 4 h later, in `results.json` (public) | Good: read-only grade job, sandbox user | Native |
 | **B. Upstream tests (pinned) + acceptance spec** | 1–2 days: spec engine; port 3 lessons as proof | 30–45 min to draft, review and run against starter and reference | ~0 | High (same mechanism as A) | Same as A | Same as A. No new secrets | Native: a new generic `check` |
 | **C. Upstream tests only;** everything else by hand (`none`/`tests`) | ~½ day | 10–15 min | 1 min × participants × human-judged lessons | Medium | Same as A for tested lessons | Same as A | Native |
 | **D. Lesson-repository PR workflow** (reusable), leaderboard reads checks | 1–2 days, plus every lesson owner adds a file | 15 min, plus the owner's cooperation | Approve each first-time PR's workflow run | **Low**: PR can edit the workflow | Minutes, inside the PR | Fork token read-only. Risky if anyone switches to `pull_request_target` | Poor: needs a GitHub App or trust in unverified results |

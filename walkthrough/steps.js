@@ -112,7 +112,7 @@ export function steps(ctx) {
         <h2>From pull request to points</h2>
         <ol class="flow">
           <li><b>A participant opens a pull request</b><span>on the exercise repo, from their fork</span></li>
-          <li><b>Every 30 minutes the grader runs</b><span>on GitHub, not on anyone’s computer: it finds new pull requests and checks each one</span></li>
+          <li><b>Every 4 hours the grader runs</b><span>on GitHub, not on anyone’s computer: it finds new pull requests and checks each one</span></li>
           <li><b>Scores are saved</b><span>in participants.csv, one row per person</span></li>
           <li><b>The page updates</b><span>a minute or two later</span></li>
         </ol>
@@ -190,7 +190,7 @@ export function steps(ctx) {
         <dl>
           <dt>Someone shows up under a GitHub username</dt><dd><b>Rename a person</b>. The username stays linked, so their pull requests keep counting.</dd>
           <dt>Someone appears twice</dt><dd><b>Merge duplicate people</b>. Nobody loses points: the higher value of every column is kept.</dd>
-          <dt>Why isn’t a submission Correct yet?</dt><dd>Open ${fileLink(ctx, 'grader/results.json')} and search for their GitHub username: each pull request lists its reasons. Grading runs every 30 minutes, or now with <b>Grade submissions</b>.</dd>
+          <dt>Why isn’t a submission Correct yet?</dt><dd>Open ${fileLink(ctx, 'grader/results.json')} and search for their GitHub username: each pull request lists its reasons. Grading runs every 4 hours, or now with <b>Grade submissions</b>.</dd>
           <dt>I made a mistake</dt><dd><b>Undo last change</b>.</dd>
         </dl>`,
       text: `<p>The full guide is ${fileLink(ctx, 'FACILITATOR.md')}.</p>`,
@@ -233,7 +233,7 @@ export function steps(ctx) {
         <ol class="flow">
           <li><b>Add one entry</b><span>with <code>"check": "none"</code> to start</span></li>
           <li><b>A column appears</b><span>on the leaderboard and in participants.csv</span></li>
-          <li><b>Pull requests count</b><span>as Submitted within 30 minutes</span></li>
+          <li><b>Pull requests count</b><span>as Submitted within 4 hours, or straight away with <b>Grade submissions</b></span></li>
           <li><b>Raise the level later</b><span>if automating it is worth it</span></li>
         </ol>`,
       text: `<p>${fileLink(ctx, 'lessons.json')} is the one place a workshop repo is connected to the leaderboard: the page, the grader, the facilitator forms and this tour all read it.</p>

@@ -1,11 +1,11 @@
 # Pulls pull requests from the exercise repositories into the leaderboard and grades them.
 # Participant code runs only in the `grade` job, which has a read-only token and no stored credentials.
 # The `publish` job never runs participant code; it merges the results and commits them.
-name: 'Grade submissions (automatic every 30 min)'
+name: 'Grade submissions (automatic every 4 hours)'
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '0 */4 * * *'  # 00:00, 04:00, 08:00... UTC; GitHub may start it a few minutes late
   workflow_dispatch:
     inputs:
       only:

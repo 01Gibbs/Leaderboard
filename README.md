@@ -10,12 +10,12 @@ A public leaderboard for the workshop. Participants submit each exercise as a pu
 ## How it works
 
 ```
-participant opens a PR ──► "Grade submissions" (every 30 min) ──► participants.csv ──► public page
+participant opens a PR ──► "Grade submissions" (every 4 hours) ──► participants.csv ──► public page
                                                                         ▲
 facilitator fills in a form in the Actions tab (award, merge, undo...) ─┘
 ```
 
-1. **Submissions.** Every 30 minutes, the *Grade submissions* workflow lists the pull requests on each lesson's repository (listed in [`lessons.json`](lessons.json)). Each author is a participant: anyone new gets a row, named from their GitHub profile, and the exercise shows as *Submitted*.
+1. **Submissions.** Every 4 hours (or straight away, when a facilitator runs it), the *Grade submissions* workflow lists the pull requests on each lesson's repository (listed in [`lessons.json`](lessons.json)). Each author is a participant: anyone new gets a row, named from their GitHub profile, and the exercise shows as *Submitted*.
 2. **Grading.** Each pull request's latest commit is checked once, with the grader's own tests (so editing the tests in a pull request does not help). If it passes, the exercise shows as *Correct*. The reason for every pass or fail is kept in `grader/results.json`.
 3. **Facilitator changes** (points, names, merges, undo) are forms in the Actions tab. Each one logs exactly which cells it changed in `grader/history.json`, so undo can change exactly those back. Changes made at the same moment all land: each run applies its change to the latest version and retries if someone else saved first.
 4. **The page** (`index.html`, served by GitHub Pages) reads `participants.csv`, `lessons.json` and `dashboard.json` (title, workshops, next week's plan, kudos), and updates a minute or two after any change.

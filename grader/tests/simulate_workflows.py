@@ -189,6 +189,11 @@ expect(ok and 'New Person,newperson,,correct' in text, 'publish: new participant
 expect(row('Josh') == josh_now, 'publish: facilitator change made during grading survives')
 expect('Update leaderboard from graded submissions' in sh('git log -1 --format=%s', clone).stdout, 'publish: commit title')
 
+print('Grading schedule')
+triggers = grade_wf['true']  # YAML 1.1 reads the key `on:` as true
+expect(triggers['schedule'] == [{'cron': '0 */4 * * *'}], 'grade: runs by itself every 4 hours')
+expect('workflow_dispatch' in triggers, 'grade: a facilitator can also start it by hand')
+
 print('Page publishing')
 for name, wf in [('facilitator-action.yml', yaml(WF / 'facilitator-action.yml')), ('grade.yml', grade_wf)]:
     callers = [j for j in wf['jobs'].values() if j.get('uses') == './.github/workflows/pages.yml']

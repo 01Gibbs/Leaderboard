@@ -23,7 +23,7 @@ When a form asks for a **person**, use either their name as it appears on the le
 | Mark an exercise correct that you checked by hand | **Facilitator: Mark an exercise** | person, exercise key (see below), *correct* |
 | Add someone who hasn't opened a pull request yet | **Facilitator: Add a person** | name, GitHub username if known |
 | Reverse a mistake | **Facilitator: Undo last change** | nothing |
-| Grade new pull requests right now | **Grade submissions** | nothing (it also runs every 30 minutes) |
+| Grade new pull requests right now | **Grade submissions** | nothing (it also runs every 4 hours) |
 
 ## Points
 Submitted **10**, correct **30**, each stretch task **+5**, each help **+5**, and bonus points count one for one. The first 3 pull requests on each exercise earn their authors a stretch credit automatically. Equal points are ranked by number of correct exercises.
