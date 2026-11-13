@@ -11,7 +11,7 @@ this is the same thing from a terminal. A person is named by their GitHub login 
   grade    [--no-run] [--only owner/repo#N]   grade new pull requests (normally run by GitHub Actions)
   apply                                   write graded results into participants.csv
   pin-tests <lesson> [commit]             grade a lesson with its exercise repository's own tests, as they are at
-                                          that commit (default: the latest), copied into grader/fixtures/<lesson>/
+                                          that full commit id (default: the latest), copied into grader/fixtures/<lesson>/
 """
 import argparse
 import json

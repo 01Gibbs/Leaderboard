@@ -46,7 +46,7 @@ Each lesson is one entry in `lessons.json`:
 |---|---|---|
 | `none` | a facilitator marks it | none |
 | `build` | the submission builds | none |
-| `tests` | our tests pass against it | none if the exercise repository ships the tests to make pass: `python3 grader/leaderboard.py pin-tests <key>` copies them, as of its latest commit, into `grader/fixtures/<key>/` and records the commit as `tests_commit`. Otherwise put test files there yourself, mirroring the project's paths |
+| `tests` | our tests pass against it | none if the exercise repository ships the tests to make pass: `python3 grader/leaderboard.py pin-tests <key>` copies them, as of its latest commit (or `pin-tests <key> <full commit id>`), into `grader/fixtures/<key>/` and records the commit as `tests_commit`. Otherwise put test files there yourself, mirroring the project's paths |
 | a custom name | anything a script can check | a module `grader/checks/<name>.py` |
 
 The current custom checks:

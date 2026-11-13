@@ -107,6 +107,31 @@ class PinTests(unittest.TestCase):
                 self.pin()
             self.assertEqual((self.lessons_file.read_text(), self.fixture_files()), before)
 
+    def test_tests_below_a_root_gradle_wrapper_keep_their_path_from_the_root(self):
+        """`gradle init` puts gradlew at the root and the tests in app/; grading finds the root, so paths start there."""
+        self.exercise.commit({**STARTER, 'gradlew': '#!/bin/sh', 'settings.gradle': "include 'app'"})
+        self.pin()
+        self.assertEqual(set(self.fixture_files()), {'app/src/test/java/GreeterTest.java', 'app/src/test/resources/names.txt'})
+
+    def test_a_shortened_commit_id_is_refused_before_fetching(self):
+        first = self.exercise.commit(STARTER)
+        with self.assertRaisesRegex(exercise_tests.PinFailed, 'full 40-character commit id'):
+            self.pin(commit=first[:7])
+
+    def test_a_lesson_with_a_custom_check_is_not_replaced(self):
+        self.exercise.commit(STARTER)
+        self.lessons_file.write_text(json.dumps([{'key': 'greeter', 'label': 'Greeter', 'repo': 'o/greeter', 'check': 'fizzbuzz'}]))
+        before = self.lessons_file.read_text()
+        with self.assertRaisesRegex(exercise_tests.PinFailed, 'custom check "fizzbuzz"'):
+            self.pin()
+        self.assertEqual(self.lessons_file.read_text(), before)
+        self.assertFalse((self.fixtures / 'greeter').exists())
+
+    def test_a_broken_lessons_file_is_explained(self):
+        self.lessons_file.write_text('[{"key": "greeter"}]')
+        with self.assertRaisesRegex(exercise_tests.PinFailed, 'needs a label'):
+            self.pin()
+
     def test_unknown_lesson(self):
         with self.assertRaisesRegex(exercise_tests.PinFailed, 'No lesson "nope"'):
             self.pin('nope')
